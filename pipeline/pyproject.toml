@@ -44,12 +44,22 @@ line-length = 100
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
-    "RUF", # ruff-specific
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "RUF",  # ruff-specific
+    "BLE",  # blind-except — flag bare `except Exception:` so our `# noqa: BLE001`
+            # exemptions are meaningful (we use them deliberately at boundaries)
+]
+ignore = [
+    # We use Unicode dashes / smart quotes intentionally in user-facing strings
+    # and docstrings. RUF001/2/3 flag them as "ambiguous" — true in code, fine
+    # for prose. Suppress for the whole project.
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.pytest.ini_options]

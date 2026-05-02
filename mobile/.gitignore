@@ -1,0 +1,18 @@
+# Expo / RN
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+ios/
+android/
+*.log
+
+# Metro / TS
+.metro-health-check*
+expo-env.d.ts
+
+# Env
+.env
+.env.local
+.env.*.local

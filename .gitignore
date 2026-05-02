@@ -45,3 +45,6 @@ supabase/.temp/
 # Logs
 *.log
 /tmp/pip-install.log
+
+# pytest temp artifacts that occasionally land outside .pytest_cache
+pipeline/pytest-cache-files-*

@@ -76,14 +76,22 @@ Category = Literal[
     "other",
 ]
 
+# reward_value interpretation for each RewardType:
+#   points_multiplier → multiplier (4 for "4x points")
+#   cash_back_pct     → fraction (0.05 for "5% back")
+#   statement_credit  → cents (30000 for "$300 credit")
+#   fixed_points      → number of points (60000 for "60K bonus")
+#   perk              → None (lounge access, no FX fee, etc.)
+#   insurance         → None or cap amount in cents
+#   discount_pct      → fraction (0.10 for "10% off")
 RewardType = Literal[
-    "points_multiplier",   # "earn 4x points on dining"        → reward_value=4, unit=points_per_dollar
-    "cash_back_pct",       # "5% back on rotating categories"  → reward_value=0.05, unit=percentage
-    "statement_credit",    # "$300 annual travel credit"       → reward_value=30000, unit=cents_usd
-    "fixed_points",        # "60,000-point sign-up bonus"      → reward_value=60000, unit=points
-    "perk",                # lounge access, no FX fee, etc.    → reward_value=None
-    "insurance",           # coverage benefit                  → reward_value=optional cap
-    "discount_pct",        # "10% off Hertz"                   → reward_value=0.10, unit=percentage
+    "points_multiplier",
+    "cash_back_pct",
+    "statement_credit",
+    "fixed_points",
+    "perk",
+    "insurance",
+    "discount_pct",
 ]
 
 RewardValueUnit = Literal[
@@ -281,7 +289,10 @@ class ExtractedBenefit(BaseModel):
     )
     notes: str | None = Field(
         default=None,
-        description="Anything the structured fields can't capture: caveats, exclusions, related benefits.",
+        description=(
+            "Anything the structured fields can't capture: caveats, "
+            "exclusions, related benefits."
+        ),
         max_length=1000,
     )
 

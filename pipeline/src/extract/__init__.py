@@ -7,13 +7,13 @@ Public surface (so far):
 """
 
 from extract.schema import (
-    ExtractedBenefit,
     RECORD_BENEFIT_TOOL,
+    ExtractedBenefit,
     benefit_signature,
 )
 
 __all__ = [
-    "ExtractedBenefit",
     "RECORD_BENEFIT_TOOL",
+    "ExtractedBenefit",
     "benefit_signature",
 ]
