@@ -93,18 +93,41 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def _setup_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
+    """Configure logging.
+
+    ``--verbose`` only escalates OUR namespace (``extract.*``) to DEBUG.
+    Networking libraries stay pinned at WARNING regardless, because their
+    DEBUG output includes raw request headers — i.e. the Supabase service
+    role / Anthropic Authorization bearer token. We learned that the hard
+    way; never bring it back.
+    """
+    # Root stays at INFO so meaningful third-party warnings still surface.
     logging.basicConfig(
-        level=level,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)-7s %(name)-20s %(message)s",
         datefmt="%H:%M:%S",
-        # httpx and anthropic are noisy at INFO; quiet them unless --verbose
         force=True,
     )
-    if not verbose:
-        logging.getLogger("httpx").setLevel(logging.WARNING)
-        logging.getLogger("httpcore").setLevel(logging.WARNING)
-        logging.getLogger("anthropic").setLevel(logging.WARNING)
+
+    # Our app namespace honors --verbose.
+    logging.getLogger("extract").setLevel(
+        logging.DEBUG if verbose else logging.INFO,
+    )
+
+    # Networking / HTTP plumbing: pinned to WARNING. These libraries log
+    # request headers (including Authorization) at DEBUG and frame payloads
+    # at INFO — neither is safe to enable in a script that handles secrets.
+    for noisy in (
+        "httpx",
+        "httpcore",
+        "hpack",          # HTTP/2 header compression — dumps decoded headers
+        "h2",
+        "urllib3",
+        "anthropic",      # the SDK is fine; transport noise comes from httpx/hpack
+        "supabase",
+        "postgrest",
+    ):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

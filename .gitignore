@@ -38,6 +38,9 @@ web-build/
 pipeline/.scratch/
 pipeline/.cache/
 
+# Backup files (e.g. cards.yaml.bak written by discover_sources.py --apply)
+*.bak
+
 # Local Supabase CLI state
 supabase/.branches/
 supabase/.temp/

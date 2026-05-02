@@ -1,409 +1,356 @@
-# ─────────────────────────────────────────────────────────────────────────────
-#  WanderFree v1 catalog — the 25 cards we extract benefits for.
-#  ----------------------------------------------------------------------------
-#  Schema (per card):
-#    slug              kebab-case stable identifier; mirrors cards.slug in DB
-#    name              human display name
-#    issuer            slug from `issuers` block below
-#    network_tier      slug from `network_tiers` block, or null
-#                      (Amex / Discover cards usually have null — their benefits
-#                       are card-specific, not network-inherited)
-#    is_business       true for SMB cards
-#    annual_fee_cents  in cents. ⚠ APPROXIMATE — verify against the source
-#                      doc on first extraction run, then update here
-#    sources           list of fetch targets. kind: cfpb_agreement,
-#                      marketing_page, or benefits_guide
-#
-#  ⚠ ALL source `url:` fields marked TODO are placeholders. The
-#    source-acquisition module (next build phase) will either:
-#      a) discover them programmatically from the issuer's site, or
-#      b) be filled in here manually after one-time discovery
-#    The marketing_page URLs are best-guess based on known issuer URL patterns
-#    but should be sanity-checked before the first run.
-# ─────────────────────────────────────────────────────────────────────────────
-
 issuers:
-  - slug: chase
-    name: Chase
-  - slug: amex
-    name: American Express
-  - slug: capital-one
-    name: Capital One
-  - slug: citi
-    name: Citi
-  - slug: wells-fargo
-    name: Wells Fargo
-  - slug: us-bank
-    name: U.S. Bank
-  - slug: discover
-    name: Discover
-  - slug: bofa
-    name: Bank of America
-
+- slug: chase
+  name: Chase
+- slug: amex
+  name: American Express
+- slug: capital-one
+  name: Capital One
+- slug: citi
+  name: Citi
+- slug: wells-fargo
+  name: Wells Fargo
+- slug: us-bank
+  name: U.S. Bank
+- slug: discover
+  name: Discover
+- slug: bofa
+  name: Bank of America
 network_tiers:
-  - slug: visa-infinite
-    network: visa
-    tier_name: Infinite
-  - slug: visa-signature
-    network: visa
-    tier_name: Signature
-  - slug: world-elite-mastercard
-    network: mastercard
-    tier_name: World Elite
-  - slug: world-mastercard
-    network: mastercard
-    tier_name: World
-
+- slug: visa-infinite
+  network: visa
+  tier_name: Infinite
+- slug: visa-signature
+  network: visa
+  tier_name: Signature
+- slug: world-elite-mastercard
+  network: mastercard
+  tier_name: World Elite
+- slug: world-mastercard
+  network: mastercard
+  tier_name: World
 cards:
-  # ── Premium consumer (10) ──────────────────────────────────────────────────
-  - slug: chase-sapphire-reserve
-    name: Chase Sapphire Reserve
-    issuer: chase
-    network_tier: visa-infinite
-    is_business: false
-    annual_fee_cents: 55000   # ⚠ verify — Chase raised the fee in a recent refresh
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: chase-sapphire-preferred
-    name: Chase Sapphire Preferred
-    issuer: chase
-    network_tier: visa-signature
-    is_business: false
-    annual_fee_cents: 9500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: amex-platinum
-    name: The Platinum Card from American Express
-    issuer: amex
-    network_tier: null
-    is_business: false
-    annual_fee_cents: 69500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.americanexpress.com/us/credit-cards/card/platinum/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: amex-gold
-    name: American Express Gold Card
-    issuer: amex
-    network_tier: null
-    is_business: false
-    annual_fee_cents: 32500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.americanexpress.com/us/credit-cards/card/gold-card/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: amex-green
-    name: American Express Green Card
-    issuer: amex
-    network_tier: null
-    is_business: false
-    annual_fee_cents: 15000
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.americanexpress.com/us/credit-cards/card/green-card/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: capital-one-venture-x
-    name: Capital One Venture X Rewards
-    issuer: capital-one
-    network_tier: visa-infinite
-    is_business: false
-    annual_fee_cents: 39500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.capitalone.com/credit-cards/venture-x/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: capital-one-venture
-    name: Capital One Venture Rewards
-    issuer: capital-one
-    network_tier: visa-signature
-    is_business: false
-    annual_fee_cents: 9500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.capitalone.com/credit-cards/venture/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: citi-strata-premier
-    name: Citi Strata Premier
-    issuer: citi
-    network_tier: world-elite-mastercard
-    is_business: false
-    annual_fee_cents: 9500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.citi.com/credit-cards/citi-strata-premier-credit-card  # ⚠ verify post-rebrand
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: bilt-mastercard
-    name: Bilt Mastercard
-    issuer: wells-fargo
-    network_tier: world-elite-mastercard
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.biltrewards.com/card
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: us-bank-altitude-reserve
-    name: U.S. Bank Altitude Reserve Visa Infinite
-    issuer: us-bank
-    network_tier: visa-infinite
-    is_business: false
-    annual_fee_cents: 40000
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.usbank.com/credit-cards/altitude-reserve-visa-infinite-credit-card.html
-      - kind: benefits_guide
-        url: TODO
-
-  # ── No / low annual fee consumer (8) ───────────────────────────────────────
-  - slug: chase-freedom-unlimited
-    name: Chase Freedom Unlimited
-    issuer: chase
-    network_tier: visa-signature
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: chase-freedom-flex
-    name: Chase Freedom Flex
-    issuer: chase
-    network_tier: world-elite-mastercard   # ⚠ Chase migrated Freedom Flex to Mastercard — verify
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/cash-back-credit-cards/freedom/flex
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: capital-one-savor
-    name: Capital One Savor
-    issuer: capital-one
-    network_tier: world-elite-mastercard
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.capitalone.com/credit-cards/savor/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: citi-custom-cash
-    name: Citi Custom Cash
-    issuer: citi
-    network_tier: world-elite-mastercard
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.citi.com/credit-cards/citi-custom-cash-credit-card
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: citi-double-cash
-    name: Citi Double Cash
-    issuer: citi
-    network_tier: world-elite-mastercard
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.citi.com/credit-cards/citi-double-cash-credit-card
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: discover-it-cash-back
-    name: Discover it Cash Back
-    issuer: discover
-    network_tier: null   # Discover network has no separate tier benefits to inherit
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.discover.com/credit-cards/cash-back/it-card.html
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: wells-fargo-active-cash
-    name: Wells Fargo Active Cash
-    issuer: wells-fargo
-    network_tier: visa-signature
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.wellsfargo.com/credit-cards/active-cash/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: bofa-unlimited-cash-rewards
-    name: Bank of America Unlimited Cash Rewards
-    issuer: bofa
-    network_tier: visa-signature
-    is_business: false
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.bankofamerica.com/credit-cards/products/unlimited-cash-back-credit-card/
-      - kind: benefits_guide
-        url: TODO
-
-  # ── Business (7) ───────────────────────────────────────────────────────────
-  - slug: amex-business-platinum
-    name: The Business Platinum Card from American Express
-    issuer: amex
-    network_tier: null
-    is_business: true
-    annual_fee_cents: 69500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/the-business-platinum-card-from-american-express/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: amex-business-gold
-    name: American Express Business Gold Card
-    issuer: amex
-    network_tier: null
-    is_business: true
-    annual_fee_cents: 37500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/american-express-business-gold-card/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: amex-blue-business-plus
-    name: The Blue Business Plus Credit Card from American Express
-    issuer: amex
-    network_tier: null
-    is_business: true
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/blue-business-plus-credit-card-amex/
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: chase-ink-business-preferred
-    name: Chase Ink Business Preferred
-    issuer: chase
-    network_tier: visa-signature   # ⚠ verify; some Ink cards are Mastercard
-    is_business: true
-    annual_fee_cents: 9500
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/business-credit-cards/ink/business-preferred
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: chase-ink-business-cash
-    name: Chase Ink Business Cash
-    issuer: chase
-    network_tier: visa-signature
-    is_business: true
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/business-credit-cards/ink/business-cash
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: chase-ink-business-unlimited
-    name: Chase Ink Business Unlimited
-    issuer: chase
-    network_tier: visa-signature
-    is_business: true
-    annual_fee_cents: 0
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://creditcards.chase.com/business-credit-cards/ink/business-unlimited
-      - kind: benefits_guide
-        url: TODO
-
-  - slug: capital-one-spark-cash-plus
-    name: Capital One Spark Cash Plus
-    issuer: capital-one
-    network_tier: world-elite-mastercard
-    is_business: true
-    annual_fee_cents: 15000
-    sources:
-      - kind: cfpb_agreement
-        url: TODO
-      - kind: marketing_page
-        url: https://www.capitalone.com/small-business/credit-cards/spark-cash-plus/
-      - kind: benefits_guide
-        url: TODO
+- slug: chase-sapphire-reserve
+  name: Chase Sapphire Reserve
+  issuer: chase
+  network_tier: visa-infinite
+  is_business: false
+  annual_fee_cents: 55000
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve
+  - kind: benefits_guide
+    url: https://static.chasecdn.com/content/services/structured-document/document.en.pdf/card/benefits-center/product-benefits-guide-pdf/BGC11388_v2.pdf
+- slug: chase-sapphire-preferred
+  name: Chase Sapphire Preferred
+  issuer: chase
+  network_tier: visa-signature
+  is_business: false
+  annual_fee_cents: 9500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/rewards-credit-cards/sapphire/preferred
+  - kind: benefits_guide
+    url: https://sites.chase.com/services/creatives/pricingandterms.html/content/dam/pricingandterms/LGC61729.html
+- slug: amex-platinum
+  name: The Platinum Card from American Express
+  issuer: amex
+  network_tier: null
+  is_business: false
+  annual_fee_cents: 69500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.americanexpress.com/us/credit-cards/card/platinum/
+  - kind: benefits_guide
+    url: TODO
+- slug: amex-gold
+  name: American Express Gold Card
+  issuer: amex
+  network_tier: null
+  is_business: false
+  annual_fee_cents: 32500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.americanexpress.com/us/credit-cards/card/gold-card/
+  - kind: benefits_guide
+    url: TODO
+- slug: amex-green
+  name: American Express Green Card
+  issuer: amex
+  network_tier: null
+  is_business: false
+  annual_fee_cents: 15000
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.americanexpress.com/us/credit-cards/card/green-card/
+  - kind: benefits_guide
+    url: TODO
+- slug: capital-one-venture-x
+  name: Capital One Venture X Rewards
+  issuer: capital-one
+  network_tier: visa-infinite
+  is_business: false
+  annual_fee_cents: 39500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.capitalone.com/credit-cards/venture-x/
+  - kind: benefits_guide
+    url: https://ecm.capitalone.com/WCM/card/benefits-guide/visa-benefits-guides/visa-infinite-english.pdf
+- slug: capital-one-venture
+  name: Capital One Venture Rewards
+  issuer: capital-one
+  network_tier: visa-signature
+  is_business: false
+  annual_fee_cents: 9500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.capitalone.com/credit-cards/venture/
+  - kind: benefits_guide
+    url: https://www.capitalone.com/credit-cards/benefits-guide/
+- slug: citi-strata-premier
+  name: Citi Strata Premier
+  issuer: citi
+  network_tier: world-elite-mastercard
+  is_business: false
+  annual_fee_cents: 9500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.citi.com/credit-cards/citi-strata-premier-credit-card
+  - kind: benefits_guide
+    url: TODO
+- slug: bilt-mastercard
+  name: Bilt Mastercard
+  issuer: wells-fargo
+  network_tier: world-elite-mastercard
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.biltrewards.com/card
+  - kind: benefits_guide
+    url: TODO
+- slug: us-bank-altitude-reserve
+  name: U.S. Bank Altitude Reserve Visa Infinite
+  issuer: us-bank
+  network_tier: visa-infinite
+  is_business: false
+  annual_fee_cents: 40000
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.usbank.com/credit-cards/altitude-reserve-visa-infinite-credit-card.html
+  - kind: benefits_guide
+    url: TODO
+- slug: chase-freedom-unlimited
+  name: Chase Freedom Unlimited
+  issuer: chase
+  network_tier: visa-signature
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/cash-back-credit-cards/freedom/unlimited
+  - kind: benefits_guide
+    url: https://static.chasecdn.com/content/services/structured-document/document.en.pdf/card/benefits-center/product-benefits-guide-pdf/BGC11366_v2.pdf
+- slug: chase-freedom-flex
+  name: Chase Freedom Flex
+  issuer: chase
+  network_tier: world-elite-mastercard
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/cash-back-credit-cards/freedom/flex
+  - kind: benefits_guide
+    url: https://static.chasecdn.com/content/services/structured-document/document.en.pdf/card/benefits-center/product-benefits-guide-pdf/BGC11363_v2.pdf
+- slug: capital-one-savor
+  name: Capital One Savor
+  issuer: capital-one
+  network_tier: world-elite-mastercard
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.capitalone.com/credit-cards/savor/
+  - kind: benefits_guide
+    url: TODO
+- slug: citi-custom-cash
+  name: Citi Custom Cash
+  issuer: citi
+  network_tier: world-elite-mastercard
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.citi.com/credit-cards/citi-custom-cash-credit-card
+  - kind: benefits_guide
+    url: TODO
+- slug: citi-double-cash
+  name: Citi Double Cash
+  issuer: citi
+  network_tier: world-elite-mastercard
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.citi.com/credit-cards/citi-double-cash-credit-card
+  - kind: benefits_guide
+    url: TODO
+- slug: discover-it-cash-back
+  name: Discover it Cash Back
+  issuer: discover
+  network_tier: null
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.discover.com/credit-cards/cash-back/it-card.html
+  - kind: benefits_guide
+    url: TODO
+- slug: wells-fargo-active-cash
+  name: Wells Fargo Active Cash
+  issuer: wells-fargo
+  network_tier: visa-signature
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.wellsfargo.com/credit-cards/active-cash/
+  - kind: benefits_guide
+    url: TODO
+- slug: bofa-unlimited-cash-rewards
+  name: Bank of America Unlimited Cash Rewards
+  issuer: bofa
+  network_tier: visa-signature
+  is_business: false
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.bankofamerica.com/credit-cards/products/unlimited-cash-back-credit-card/
+  - kind: benefits_guide
+    url: TODO
+- slug: amex-business-platinum
+  name: The Business Platinum Card from American Express
+  issuer: amex
+  network_tier: null
+  is_business: true
+  annual_fee_cents: 69500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/the-business-platinum-card-from-american-express/
+  - kind: benefits_guide
+    url: TODO
+- slug: amex-business-gold
+  name: American Express Business Gold Card
+  issuer: amex
+  network_tier: null
+  is_business: true
+  annual_fee_cents: 37500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/american-express-business-gold-card/
+  - kind: benefits_guide
+    url: TODO
+- slug: amex-blue-business-plus
+  name: The Blue Business Plus Credit Card from American Express
+  issuer: amex
+  network_tier: null
+  is_business: true
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.americanexpress.com/us/credit-cards/business/business-credit-cards/blue-business-plus-credit-card-amex/
+  - kind: benefits_guide
+    url: TODO
+- slug: chase-ink-business-preferred
+  name: Chase Ink Business Preferred
+  issuer: chase
+  network_tier: visa-signature
+  is_business: true
+  annual_fee_cents: 9500
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/business-credit-cards/ink/business-preferred
+  - kind: benefits_guide
+    url: https://sites.chase.com/services/creatives/pricingandterms.html/content/dam/pricingandterms/LGC63764.html
+- slug: chase-ink-business-cash
+  name: Chase Ink Business Cash
+  issuer: chase
+  network_tier: visa-signature
+  is_business: true
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/business-credit-cards/ink/business-cash
+  - kind: benefits_guide
+    url: https://sites.chase.com/services/creatives/pricingandterms.html/content/dam/pricingandterms/LGC63827.html
+- slug: chase-ink-business-unlimited
+  name: Chase Ink Business Unlimited
+  issuer: chase
+  network_tier: visa-signature
+  is_business: true
+  annual_fee_cents: 0
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://creditcards.chase.com/business-credit-cards/ink/business-unlimited
+  - kind: benefits_guide
+    url: TODO
+- slug: capital-one-spark-cash-plus
+  name: Capital One Spark Cash Plus
+  issuer: capital-one
+  network_tier: world-elite-mastercard
+  is_business: true
+  annual_fee_cents: 15000
+  sources:
+  - kind: cfpb_agreement
+    url: TODO
+  - kind: marketing_page
+    url: https://www.capitalone.com/small-business/credit-cards/spark-cash-plus/
+  - kind: benefits_guide
+    url: TODO
