@@ -1,0 +1,47 @@
+# ── Python ──────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Build / dist
+build/
+dist/
+*.whl
+
+# Coverage
+.coverage
+htmlcov/
+
+# ── Node / Expo ─────────────────────────────────────────────────
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# ── Editors / OS ────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+.env
+.env.local
+.env.*.local
+
+# ── Project-specific ────────────────────────────────────────────
+# Pipeline scratch (raw PDFs we may temporarily stage during a run)
+pipeline/.scratch/
+pipeline/.cache/
+
+# Local Supabase CLI state
+supabase/.branches/
+supabase/.temp/
+
+# Logs
+*.log
+/tmp/pip-install.log

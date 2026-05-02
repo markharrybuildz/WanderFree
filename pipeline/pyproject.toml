@@ -1,0 +1,57 @@
+[project]
+name = "wanderfree-pipeline"
+version = "0.1.0"
+description = "Hydrates the WanderFree credit card benefits catalog by extracting structured data from issuer documents via the Claude API."
+requires-python = ">=3.12"
+
+# Runtime dependencies
+dependencies = [
+    "anthropic>=0.40.0",        # Claude SDK with tool-use support
+    "pypdfium2>=4.30.0",        # PDF -> text (Lexbor-fast, accurate vs pdfplumber)
+    "httpx>=0.27.0",            # HTTP client for source fetching
+    "selectolax>=0.3.21",       # Fast HTML parser (Lexbor-backed)
+    "supabase>=2.7.0",          # Supabase Python client for catalog writes
+    "pydantic>=2.9.0",          # Schema definitions for extraction tool
+    "pydantic-settings>=2.5.0", # Env var loading (separate package in pydantic v2)
+    "pyyaml>=6.0",              # Loading cards.yaml
+    "tenacity>=9.0.0",          # Retry/backoff for fetch + Claude calls
+    "python-dotenv>=1.0.0",     # Local dev convenience for .env files
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.6.0",
+]
+
+[project.scripts]
+# Quarterly batch entrypoint — invoked by GitHub Actions cron
+wanderfree-extract = "extract.main:cli"
+# Smoke test for the schema definition
+wanderfree-dump-tool = "extract.scripts.dump_tool:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"  # Must match requires-python — drift causes spurious lint warnings
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "RUF", # ruff-specific
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
