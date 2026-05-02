@@ -9,7 +9,7 @@ background.
 
 | Layer | Choice |
 |------|--------|
-| Framework | Expo SDK 52 (pinned in `package.json` — bump with `npx expo install --fix` after first setup) |
+| Framework | Expo SDK 54 (pinned in `package.json`; matches the current App Store / Play Store Expo Go build — bumping past 54 will trigger "Project is incompatible with this version of Expo Go" until the SDK 55 Expo Go build clears review) |
 | Routing | Expo Router (file-based, types-aware) |
 | Styling | NativeWind v4 — Tailwind classes from the Figma export work as-is |
 | Data | `@supabase/supabase-js` + `@tanstack/react-query` + AsyncStorage persister |
