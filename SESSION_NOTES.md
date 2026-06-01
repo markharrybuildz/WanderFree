@@ -133,7 +133,7 @@ WanderFree/
 │
 └── mobile/                         Expo / React Native app
     ├── README.md                   Setup, env vars, port-the-Figma guide
-    ├── package.json                Expo SDK 55, RN 0.83, React 19
+    ├── package.json                Expo SDK 54, RN 0.81, React 19 (pinned to App Store Expo Go's SDK)
     ├── .npmrc                      legacy-peer-deps=true (load-bearing)
     ├── app.json                    web.output: "single" (load-bearing)
     ├── babel.config.js             nativewind/babel
