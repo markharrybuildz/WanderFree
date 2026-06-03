@@ -9,7 +9,7 @@ background.
 
 | Layer | Choice |
 |------|--------|
-| Framework | Expo SDK 52 (pinned in `package.json` — bump with `npx expo install --fix` after first setup) |
+| Framework | Expo SDK 55 (pinned in `package.json` — bump with `npx expo install --fix` after first setup) |
 | Routing | Expo Router (file-based, types-aware) |
 | Styling | NativeWind v4 — Tailwind classes from the Figma export work as-is |
 | Data | `@supabase/supabase-js` + `@tanstack/react-query` + AsyncStorage persister |
@@ -52,9 +52,9 @@ on the client. Two required:
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API → Project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API → `anon` `public` key |
 
-**Do NOT put the service role key in this app.** It bypasses RLS. The pipeline
-uses it server-side; the mobile app uses the anon key, and per-user data is
-guarded by RLS policies (see `../supabase/migrations/0001_init.sql`).
+**Do NOT put the service role key in this app.** It bypasses RLS. The mobile
+app uses the anon key, and per-user data is guarded by RLS policies that
+check `portfolio_members` (see `../supabase/README.md`).
 
 ## Layout
 
@@ -73,14 +73,13 @@ mobile/
 │       └── settings.tsx                 Account / sign out
 ├── components/
 │   ├── BenefitCard.tsx
-│   ├── StatsCard.tsx
-│   └── FilterDropdown.tsx
+│   └── StatsCard.tsx
 ├── lib/
 │   ├── supabase.ts                      Supabase client (AsyncStorage session)
 │   ├── queryClient.ts                   TanStack Query + AsyncStorage persister
 │   ├── auth.ts                          Sign-in/sign-up wrappers
-│   ├── hooks.ts                         useBenefits, useUserCards, etc.
-│   └── types.ts                         TS shapes mirroring user_visible_benefits
+│   ├── hooks.ts                         useBenefits, useUserCards, useCurrentPortfolio, etc.
+│   └── types.ts                         TS shapes mirroring the Postgres schema
 ├── app.json                             Expo config
 ├── babel.config.js                      Expo + NativeWind v4 preset
 ├── metro.config.js                      withNativeWind wrapper
@@ -102,8 +101,7 @@ App start:
 2. Query refetches in the background.
 3. When fresh data arrives, the UI re-renders smoothly (no spinner).
 
-Offline launches show the most recent cache. Per-user mutations (toggling
-"completed") use optimistic updates so the UI feels instant.
+Offline launches show the most recent cache.
 
 ## Porting the Figma export
 

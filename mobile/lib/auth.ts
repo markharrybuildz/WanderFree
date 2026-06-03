@@ -8,6 +8,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
+import { queryClient } from "./queryClient";
 import { supabase } from "./supabase";
 
 export interface AuthState {
@@ -31,9 +32,16 @@ export function useAuthSession(): AuthState {
     });
 
     // 2. Subscribe to future changes — sign in / sign out / token refresh.
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    //    On every change, drop user-scoped query caches so the next read
+    //    hits the DB with the new identity. Catalog queries (cards, etc.)
+    //    stay cached.
+    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
       setSession(newSession);
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ["current_portfolio"] });
+        queryClient.removeQueries({ queryKey: ["portfolio"] });
+      }
     });
 
     return () => {

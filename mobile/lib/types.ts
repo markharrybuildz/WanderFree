@@ -1,194 +1,231 @@
 // TypeScript shapes mirroring the Postgres schema in
-// `supabase/migrations/0001_init.sql`. When the DB schema changes, update
-// these to match. (Long term we'd want to generate this with
-// `supabase gen types typescript` — punting that for v1.)
+// `supabase/migrations/`. Regenerate with `supabase gen types typescript`
+// once we wire that into the dev loop; until then keep these in sync by
+// hand after each `supabase db pull`.
 
-// ── Catalog ──────────────────────────────────────────────────────────────
+// ── Enums (match live Postgres enums) ────────────────────────────────────
 
-export interface Issuer {
-  id: number;
-  slug: string;
+export type CardNetwork = "visa" | "mastercard" | "amex" | "discover";
+
+export type RewardUnit = "points" | "miles" | "cash_back";
+
+export type ProgramUnitType = "points" | "miles" | "cash_back";
+
+export type ResetFrequency =
+  | "monthly"
+  | "quarterly"
+  | "semiannual"
+  | "annual"
+  | "one_time";
+
+export type ResetBasis = "calendar" | "anniversary";
+
+export type BenefitCycleStatus =
+  | "unused"
+  | "partially_used"
+  | "fully_used"
+  | "expired";
+
+export type MemberRole = "owner" | "editor" | "viewer";
+
+export type TransferPartnerType = "airline" | "hotel";
+
+// ── Catalog (public-read) ────────────────────────────────────────────────
+
+export interface CardIssuer {
+  id: string;
   name: string;
 }
 
-export interface NetworkTier {
-  id: number;
-  slug: string;
-  network: "visa" | "mastercard" | "amex" | "discover";
-  tier_name: string;
-}
-
-export interface Card {
-  id: number;
-  slug: string;
+export interface RewardsProgram {
+  id: string;
   name: string;
-  issuer_id: number;
-  network_tier_id: number | null;
-  annual_fee_cents: number | null;
-  is_business: boolean;
-  is_active: boolean;
-  // Joined when we ask for it
-  issuer?: Issuer;
-  network_tier?: NetworkTier | null;
-}
-
-// ── Per-user ─────────────────────────────────────────────────────────────
-
-export interface UserCard {
-  user_id: string;
-  card_id: number;
-  opened_on: string | null;
+  unit_type: ProgramUnitType;
   created_at: string;
-  card?: Card;
-}
-
-export interface UserBenefit {
-  user_id: string;
-  benefit_id: number;
-  completed: boolean;
-  completed_at: string | null;
-  notes: string | null;
   updated_at: string;
 }
 
-// ── Read view ────────────────────────────────────────────────────────────
-
-// Mirrors the SELECT list of `user_visible_benefits`. Columns from the
-// per-user join (completed, completed_at) are merged in.
-export interface UserVisibleBenefit {
-  benefit_id: number;
-  source: "card" | "network";
-  card_id: number | null;
-  network_tier_id: number | null;
-  card_name: string | null;
-  issuer_name: string | null;
-
-  category: BenefitCategory;
-  subcategory: string | null;
-
-  reward_type: RewardType;
-  reward_value: number | null;
-  reward_value_unit: RewardValueUnit | null;
-
-  cap_amount_cents: number | null;
-  cap_period: CapPeriod | null;
-  min_spend_cents: number | null;
-  min_spend_period_months: number | null;
-
-  recurrence: Recurrence;
-  recurrence_split: boolean;
-  valid_from: string | null;
-  valid_to: string | null;
-
-  requires_activation: boolean;
-  activation_method: string | null;
-  eligible_merchants: string[] | null;
-
-  source_quote: string;
-  source_url: string | null;
-  source_section: string | null;
-  extraction_confidence: "high" | "medium" | "low";
-  notes: string | null;
-
-  completed: boolean;
-  completed_at: string | null;
+export interface CardProduct {
+  id: string;
+  issuer_id: string;
+  rewards_program_id: string | null;
+  name: string;
+  network: CardNetwork;
+  annual_fee: number;
+  // Joined when requested
+  issuer?: CardIssuer;
+  rewards_program?: RewardsProgram | null;
 }
 
-// ── Enums (kept in sync with pipeline/src/extract/schema.py) ─────────────
+export interface RewardCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+}
 
-export type BenefitCategory =
-  | "dining"
-  | "travel"
-  | "flights"
-  | "hotels"
-  | "gas"
-  | "ev_charging"
-  | "grocery"
-  | "wholesale_club"
-  | "transit"
-  | "rideshare"
-  | "streaming"
-  | "telecom"
-  | "online_retail"
-  | "drugstore"
-  | "lounge_access"
-  | "global_entry_credit"
-  | "tsa_precheck_credit"
-  | "travel_insurance"
-  | "purchase_protection"
-  | "extended_warranty"
-  | "rental_car_cdw"
-  | "trip_delay"
-  | "trip_cancellation"
-  | "lost_luggage"
-  | "cell_phone_protection"
-  | "statement_credit_brand"
-  | "statement_credit_general"
-  | "signup_bonus"
-  | "anniversary_bonus"
-  | "referral_bonus"
-  | "points_transfer_partner"
-  | "redemption_bonus"
-  | "other";
+export interface BenefitCategory {
+  id: string;
+  name: string;
+  description: string | null;
+}
 
-export type RewardType =
-  | "points_multiplier"
-  | "cash_back_pct"
-  | "statement_credit"
-  | "fixed_points"
-  | "perk"
-  | "insurance"
-  | "discount_pct";
+export interface CardRewardRule {
+  id: string;
+  card_product_id: string;
+  reward_category_id: string;
+  multiplier: number;
+  reward_unit: RewardUnit;
+  days_of_week: number[] | null;
+  start_time: string | null;
+  end_time: string | null;
+  spend_cap: number | null;
+  conditions: Record<string, unknown> | null;
+  reward_category?: RewardCategory;
+}
 
-export type RewardValueUnit =
-  | "points_per_dollar"
-  | "miles_per_dollar"
-  | "percentage"
-  | "points"
-  | "miles"
-  | "cents_usd"
-  | "none";
+export interface BenefitDefinition {
+  id: string;
+  card_product_id: string;
+  benefit_category_id: string | null;
+  name: string;
+  value_per_period: number | null;
+  annual_value: number | null;
+  reset_frequency: ResetFrequency;
+  reset_basis: ResetBasis;
+  requires_enrollment: boolean;
+  benefit_category?: BenefitCategory | null;
+}
 
-export type CapPeriod = "per_month" | "per_quarter" | "per_year" | "lifetime" | "none";
+export interface TransferPartner {
+  id: string;
+  name: string;
+  partner_type: TransferPartnerType;
+}
 
-export type Recurrence =
-  | "one_time"
-  | "monthly"
-  | "quarterly"
-  | "semi_annual"
-  | "annual"
-  | "ongoing"
-  | "limited_time";
+export interface ProgramTransferPartner {
+  id: string;
+  rewards_program_id: string;
+  transfer_partner_id: string;
+  transfer_ratio: number;
+  is_active: boolean;
+  transfer_partner?: TransferPartner;
+}
 
-// ── Helpers for UI display ───────────────────────────────────────────────
+// ── Per-portfolio (RLS-gated) ────────────────────────────────────────────
 
-/** Group benefits the way the Figma's filter dropdowns expect. */
-export const SPEND_CATEGORIES: BenefitCategory[] = [
-  "dining",
-  "travel",
-  "flights",
-  "hotels",
-  "gas",
-  "grocery",
-  "transit",
-  "rideshare",
-  "streaming",
-];
+export interface Profile {
+  id: string;
+  display_name: string | null;
+}
 
-/** Format a benefit's reward into a human display string. Pure function — easy to test. */
-export function formatReward(b: Pick<UserVisibleBenefit, "reward_type" | "reward_value" | "reward_value_unit">): string {
-  if (b.reward_value == null) return "";
-  switch (b.reward_type) {
-    case "points_multiplier":
-      return `${b.reward_value}x`;
-    case "cash_back_pct":
-    case "discount_pct":
-      return `${(b.reward_value * 100).toFixed(b.reward_value < 0.01 ? 2 : 0)}%`;
-    case "statement_credit":
-      return `$${(b.reward_value / 100).toLocaleString()}`;
-    case "fixed_points":
-      return `${b.reward_value.toLocaleString()} pts`;
-    default:
-      return "";
-  }
+export interface Portfolio {
+  id: string;
+  name: string;
+  type: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PortfolioMember {
+  id: string;
+  portfolio_id: string;
+  profile_id: string;
+  role: MemberRole;
+  profile?: Profile;
+}
+
+export interface WalletAccount {
+  id: string;
+  portfolio_id: string;
+  rewards_program_id: string;
+  balance: number;
+  created_at: string;
+  updated_at: string;
+  rewards_program?: RewardsProgram;
+}
+
+export interface UserCard {
+  id: string;
+  portfolio_id: string;
+  card_product_id: string;
+  nickname: string | null;
+  last_four: string | null;
+  opened_on: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  card_product?: CardProduct;
+}
+
+export interface UserSignupBonus {
+  id: string;
+  user_card_id: string;
+  required_spend: number;
+  spend_deadline: string;
+  bonus_value: number;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SpendEntry {
+  id: string;
+  user_card_id: string;
+  signup_bonus_id: string | null;
+  amount: number;
+  spent_on: string;
+  reward_category_id: string;
+  created_at: string;
+  updated_at: string;
+  reward_category?: RewardCategory;
+}
+
+export interface UserBenefitCycle {
+  id: string;
+  user_card_id: string;
+  benefit_definition_id: string;
+  period_start: string;
+  period_end: string;
+  allotted_value: number | null;
+  status: BenefitCycleStatus;
+  created_at: string;
+  updated_at: string;
+  benefit_definition?: BenefitDefinition;
+}
+
+export interface BenefitRedemption {
+  id: string;
+  benefit_cycle_id: string;
+  user_card_id: string;
+  benefit_definition_id: string;
+  amount: number;
+  redeemed_on: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── UI convenience ───────────────────────────────────────────────────────
+
+/** A benefit definition resolved against a user_card and (optionally) its
+ *  current cycle. This is the row shape the Benefits screen consumes. */
+export interface UserVisibleBenefit {
+  user_card_id: string;
+  benefit_definition_id: string;
+  name: string;
+  card_name: string;
+  value_per_period: number | null;
+  annual_value: number | null;
+  reset_frequency: ResetFrequency;
+  benefit_category?: BenefitCategory | null;
+  cycle: UserBenefitCycle | null;
+  redeemed_amount: number;
+  fully_redeemed: boolean;
+}
+
+/** Format a benefit's per-period value as a USD string. */
+export function formatBenefitValue(b: Pick<BenefitDefinition, "value_per_period">): string {
+  if (b.value_per_period == null) return "";
+  return `$${b.value_per_period.toLocaleString()}`;
 }
