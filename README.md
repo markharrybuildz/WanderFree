@@ -1,46 +1,30 @@
 # WanderFree
 
-A mobile app that organizes credit card benefits. Users add the cards they hold; the app surfaces every benefit attached to those cards (statement credits, multipliers, lounge access, insurance, etc.) and tracks which ones they've used.
+A mobile app that organizes credit card benefits. Users add the cards they hold; the app surfaces every benefit attached to those cards (statement credits, multipliers, lounge access, insurance, etc.) and tracks redemptions against each benefit's cycle.
 
 ## Repository layout
 
 ```
 WanderFree/
-├── pipeline/        Python service that hydrates the catalog by extracting
-│                    structured benefit data from issuer PDFs and marketing
-│                    pages via the Claude API. Runs quarterly via GitHub
-│                    Actions cron.
+├── supabase/        Database schema (migrations), RLS policies.
+│                    The catalog (issuers, card products, benefits, reward
+│                    categories) is hand-curated in Supabase — there is no
+│                    extraction pipeline.
 │
-├── supabase/        Database schema (migrations), RLS policies, and the
-│                    user_visible_benefits view that the mobile app reads
-│                    against.
-│
-└── mobile/          Expo / React Native app (scaffolded in a later step).
-                     Reads from Supabase directly via supabase-js with
-                     TanStack Query + AsyncStorage caching.
+└── mobile/          Expo / React Native app. Reads + writes Supabase
+                     directly via supabase-js with TanStack Query +
+                     AsyncStorage caching.
 ```
 
 ## Architecture at a glance
 
 ```
-┌───────────────────────────┐
-│ pipeline (GitHub Actions) │
-│  CFPB / issuer pages      │
-│         ↓                 │
-│  PDF/HTML → text          │
-│         ↓                 │
-│  Claude API (tool use)    │
-│         ↓                 │
-│  validation               │
-└────────────┬──────────────┘
-             ↓ upsert
 ┌────────────────────────────┐
 │ Supabase Postgres          │
-│  catalog tables (benefits, │
-│   cards, network_tiers)    │
-│  per-user tables (RLS)     │
-│  user_visible_benefits     │
-│   view (security_invoker)  │
+│  catalog tables (manually  │
+│   curated)                 │
+│  portfolio-scoped tables   │
+│   (RLS by membership)      │
 └────────────┬───────────────┘
              ↓ supabase-js + RLS
 ┌────────────────────────────┐
@@ -57,20 +41,16 @@ WanderFree/
 |----------|--------|
 | Backend | Supabase (Postgres + Auth + RLS) |
 | Mobile | Expo / React Native |
-| Catalog extraction | Claude API (tool-use mode) |
-| Catalog scope (v1) | Top 25 cards (consumer + business) |
-| Refresh cadence | Quarterly |
-| Source documents | Not stored (revisit if audit issues arise) |
-| Pipeline host | GitHub Actions cron (free for this workload) |
-| Read path | Supabase view + RLS, no backend API |
+| Catalog source | Hand-curated in Supabase |
+| Per-user scoping | Portfolios (shared via `portfolio_members`) — not direct user ownership |
+| Read path | Supabase tables + RLS, no backend API |
 | Mobile cache | TanStack Query + AsyncStorage persister |
 
-See `pipeline/README.md` and `supabase/README.md` for component-specific docs.
+See `supabase/README.md` and `mobile/README.md` for component-specific docs.
 
 ## Getting started
 
 Each sub-project has its own toolchain. See:
 
-- [`pipeline/README.md`](./pipeline/README.md) — Python 3.12, venv, Claude API
 - [`supabase/README.md`](./supabase/README.md) — schema migrations, RLS policies
-- `mobile/README.md` — *(coming next)*
+- [`mobile/README.md`](./mobile/README.md) — Expo / RN, env vars, caching
