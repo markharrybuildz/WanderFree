@@ -364,6 +364,15 @@ export function useCreatePortfolio() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
+      // Ensure the profile row exists before inserting the portfolio.
+      // The handle_new_user() trigger covers new sign-ups, but accounts
+      // created before the trigger was deployed won't have a profile row,
+      // which causes the portfolios_created_by_fkey FK violation.
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .upsert({ id: user.id }, { onConflict: "id", ignoreDuplicates: true });
+      if (profileErr) throw profileErr;
+
       const { data: portfolio, error: pErr } = await supabase
         .from("portfolios")
         .insert({ name, type: "personal", created_by: user.id })
