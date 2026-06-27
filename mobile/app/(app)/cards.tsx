@@ -3,22 +3,27 @@
 // Tapping "Add" opens a modal that asks when the card was opened. The
 // date is used as the anchor for any anniversary-basis benefit cycles
 // the card_product defines.
+//
+// Presentation is built on the design system (semantic tokens + Text/Button
+// primitives + procedural card art); all data/handler logic below is unchanged.
 
 import { router } from "expo-router";
 import { Trash2 } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
   RefreshControl,
-  Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { CardArtThumbnail } from "@/components/CardArtThumbnail";
+import { Button, iconColor } from "@/components/ui/Button";
+import { Text } from "@/components/ui/Text";
 import { confirmDestructive, notify } from "@/lib/dialog";
 import {
   useAddUserCard,
@@ -27,6 +32,9 @@ import {
   useRemoveUserCard,
   useUserCards,
 } from "@/lib/hooks";
+import { isOnboarded, markOnboarded } from "@/lib/onboarding";
+import { supabase } from "@/lib/supabase";
+import { colors, fonts } from "@/lib/theme";
 import type { CardProduct } from "@/lib/types";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,6 +75,30 @@ export default function CardsScreen() {
 
   const [addTarget, setAddTarget] = useState<CardProduct | null>(null);
   const [openedOn, setOpenedOn] = useState(todayIso());
+  const [welcomeVisible, setWelcomeVisible] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || !active) return;
+      const done = await isOnboarded(user.id);
+      if (active && !done) setWelcomeVisible(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function dismissWelcome() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) await markOnboarded(user.id);
+    setWelcomeVisible(false);
+  }
 
   const refreshing = fetchingCards || fetchingUserCards;
   function onRefresh() {
@@ -115,9 +147,9 @@ export default function CardsScreen() {
 
   if (portfolioLoading || loadingCards || loadingUserCards) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+      <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -125,13 +157,13 @@ export default function CardsScreen() {
 
   if (!portfolioId) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-        <View className="bg-white border-b border-gray-200 px-4 py-4">
-          <Text className="text-2xl font-bold text-gray-900">Cards</Text>
+      <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+        <View className="bg-surface border-b border-border px-4 py-4">
+          <Text variant="display">Cards</Text>
         </View>
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-gray-600 text-center">
-            You're not a member of any portfolio yet.{"\n"}
+          <Text variant="body" className="text-text-muted text-center">
+            You&apos;re not a member of any portfolio yet.{"\n"}
             Create one in Supabase to get started.
           </Text>
         </View>
@@ -140,18 +172,22 @@ export default function CardsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <View className="bg-white border-b border-gray-200 px-4 py-4">
-        <Text className="text-2xl font-bold text-gray-900">Cards</Text>
-        <Text className="text-sm text-gray-600 mt-1">
+    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+      <View className="bg-surface border-b border-border px-4 py-4">
+        <Text variant="display">Cards</Text>
+        <Text variant="caption" className="text-text-muted mt-1">
           {heldByProduct.size} of {allCards?.length ?? 0} added
         </Text>
       </View>
 
       <FlatList
-        contentContainerStyle={{ padding: 16, gap: 8 }}
+        contentContainerStyle={{ padding: 16, gap: 10 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         data={allCards ?? []}
         keyExtractor={(c) => c.id}
@@ -161,25 +197,28 @@ export default function CardsScreen() {
           const annualFee =
             item.annual_fee != null ? `$${Number(item.annual_fee).toFixed(0)}/yr` : null;
 
-          const rowBody = (
-            <>
-              <Text className="text-base font-medium text-gray-900">
-                {item.name}
-              </Text>
-              <Text className="text-xs text-gray-500 mt-1">
-                {item.issuer?.name}
-                {annualFee ? ` · ${annualFee}` : ""}
-              </Text>
-              {held && heldCard && (
-                <Text className="text-xs text-gray-600 mt-1">
-                  Opened {formatOpenedOn(heldCard.opened_on)}
+          const rowContent = (
+            <View className="flex-1 flex-row items-center pr-3">
+              <CardArtThumbnail seed={item.id} />
+              <View className="flex-1 ml-3">
+                <Text variant="title" numberOfLines={1}>
+                  {item.name}
                 </Text>
-              )}
-            </>
+                <Text variant="caption" className="text-text-muted mt-0.5">
+                  {item.issuer?.name}
+                  {annualFee ? ` · ${annualFee}` : ""}
+                </Text>
+                {held && heldCard && (
+                  <Text variant="caption" className="text-text-subtle mt-0.5">
+                    Opened {formatOpenedOn(heldCard.opened_on)}
+                  </Text>
+                )}
+              </View>
+            </View>
           );
 
           return (
-            <View className="bg-white rounded-xl p-4 flex-row items-center justify-between border border-gray-200">
+            <View className="bg-surface rounded-2xl p-3 flex-row items-center border border-border">
               {held && heldCard ? (
                 <Pressable
                   onPress={() =>
@@ -191,16 +230,20 @@ export default function CardsScreen() {
                       params: { id: heldCard.id },
                     })
                   }
-                  className="flex-1 pr-3"
+                  className="flex-1"
                 >
-                  {rowBody}
+                  {rowContent}
                 </Pressable>
               ) : (
-                <View className="flex-1 pr-3">{rowBody}</View>
+                rowContent
               )}
 
               {held && heldCard ? (
-                <Pressable
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  label="Remove"
+                  leftIcon={<Trash2 size={14} color={iconColor.destructive} />}
                   onPress={() =>
                     confirmDestructive({
                       title: "Remove card?",
@@ -214,27 +257,21 @@ export default function CardsScreen() {
                         }),
                     })
                   }
-                  className="flex-row items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 border border-red-200"
-                >
-                  <Trash2 size={14} color="#dc2626" />
-                  <Text className="text-sm text-red-600 font-medium">
-                    Remove
-                  </Text>
-                </Pressable>
+                />
               ) : (
-                <Pressable
+                <Button
+                  variant="primary"
+                  size="sm"
+                  label="Add"
                   onPress={() => startAdd(item)}
-                  className="px-4 py-2 rounded-lg bg-blue-600"
-                >
-                  <Text className="text-sm text-white font-medium">Add</Text>
-                </Pressable>
+                />
               )}
             </View>
           );
         }}
         ListEmptyComponent={
           <View className="items-center justify-center py-12">
-            <Text className="text-gray-500 text-center">
+            <Text variant="body" className="text-text-muted text-center">
               No cards in the catalog yet.{"\n"}
               Add card_products in Supabase to populate it.
             </Text>
@@ -248,22 +285,23 @@ export default function CardsScreen() {
         animationType="fade"
         onRequestClose={() => setAddTarget(null)}
       >
-        <View className="flex-1 items-center justify-center bg-black/40 px-6">
-          <View className="bg-white rounded-2xl p-5 w-full max-w-md">
-            <Text className="text-lg font-semibold text-gray-900 mb-1">
+        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
+          <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
+            <Text variant="h2" className="mb-1">
               Add {addTarget?.name}
             </Text>
-            <Text className="text-sm text-gray-600 mb-4">
+            <Text variant="body" className="text-text-muted mb-4">
               When did you open this card? Used to anchor anniversary-based
               benefit cycles.
             </Text>
-            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+            <Text variant="label" className="text-text-subtle uppercase mb-2">
               Opened on
             </Text>
             <TextInput
-              className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              style={{ fontFamily: fonts.regular, fontSize: 16 }}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textSubtle}
               value={openedOn}
               onChangeText={setOpenedOn}
               autoCapitalize="none"
@@ -271,24 +309,49 @@ export default function CardsScreen() {
               autoFocus
             />
             <View className="flex-row gap-3">
-              <Pressable
+              <Button
+                variant="ghost"
+                label="Cancel"
+                className="flex-1 bg-surface-muted"
                 onPress={() => setAddTarget(null)}
-                className="flex-1 py-3 rounded-xl bg-gray-100 items-center"
-              >
-                <Text className="text-gray-700 font-medium">Cancel</Text>
-              </Pressable>
-              <Pressable
+              />
+              <Button
+                variant="primary"
+                label="Add card"
+                className="flex-1"
+                loading={add.isPending}
                 onPress={commitAdd}
-                disabled={add.isPending}
-                className={`flex-1 py-3 rounded-xl items-center ${
-                  add.isPending ? "bg-gray-300" : "bg-blue-600"
-                }`}
-              >
-                <Text className="text-white font-medium">
-                  {add.isPending ? "Adding..." : "Add card"}
-                </Text>
-              </Pressable>
+              />
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={welcomeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissWelcome}
+      >
+        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
+          <View className="bg-surface rounded-2xl p-6 w-full max-w-md">
+            <Text variant="h1" className="mb-2">
+              Add your cards
+            </Text>
+            <Text variant="body" className="text-text-muted mb-6">
+              Tap{" "}
+              <Text
+                variant="body"
+                className="text-text"
+                style={{ fontFamily: fonts.semibold }}
+              >
+                Add
+              </Text>{" "}
+              next to any card to add it to your portfolio. We&apos;ll track its
+              benefits and credits for you, and you&apos;ll see them all on the
+              Benefits tab.
+            </Text>
+            <Button variant="primary" label="Got it" fullWidth onPress={dismissWelcome} />
           </View>
         </View>
       </Modal>

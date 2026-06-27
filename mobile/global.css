@@ -1,3 +1,98 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Semantic design tokens.
+ *
+ * Colors are stored as space-separated RGB channels so Tailwind's
+ * `rgb(var(--token) / <alpha-value>)` form (see tailwind.config.js) keeps
+ * opacity utilities like `bg-overlay/40` working. Components must reference
+ * the semantic class names (bg-surface, text-text-muted, bg-accent…) — never
+ * raw hex — so a theme or dark-mode swap is a change here, not in every file.
+ *
+ * Dark mode is wired but intentionally unpolished: the `.dark` block overrides
+ * the same tokens, so flipping `colorScheme` later themes the whole app.
+ */
+@layer base {
+  :root {
+    /* System — neutral structure + subtle sky canvas */
+    --bg: 240 249 255;            /* #F0F9FF */
+    --surface: 255 255 255;       /* #FFFFFF */
+    --surface-muted: 241 245 249; /* #F1F5F9 */
+    --text: 15 23 42;             /* #0F172A */
+    --text-muted: 100 116 139;    /* #64748B */
+    --text-subtle: 148 163 184;   /* #94A3B8 */
+    --border: 226 232 240;        /* #E2E8F0 */
+    --border-strong: 203 213 225; /* #CBD5E1 */
+    --overlay: 15 23 42;          /* #0F172A (used with alpha) */
+
+    /* Brand — sky identity + orange action */
+    --primary: 14 165 233;        /* #0EA5E9  fills / large elements */
+    --primary-strong: 3 105 161;  /* #0369A1  text + active nav (AA on white) */
+    --primary-press: 7 89 133;    /* #075985 */
+    --primary-subtle: 224 242 254;/* #E0F2FE */
+    --accent: 234 88 12;          /* #EA580C  primary action */
+    --accent-press: 194 65 12;    /* #C2410C */
+    --accent-subtle: 255 247 237; /* #FFF7ED */
+
+    /* Error / destructive */
+    --error: 220 38 38;           /* #DC2626 */
+    --error-text: 185 28 28;      /* #B91C1C */
+    --error-subtle: 254 242 242;  /* #FEF2F2 */
+    --error-border: 254 202 202;  /* #FECACA */
+
+    /* Warning — pushed amber-yellow so it never reads as the orange action */
+    --warning: 180 83 9;          /* #B45309 */
+    --warning-fill: 245 158 11;   /* #F59E0B */
+    --warning-subtle: 255 251 235;/* #FFFBEB */
+
+    /* Success */
+    --success: 22 163 74;         /* #16A34A */
+    --success-text: 21 128 61;    /* #15803D */
+    --success-subtle: 240 253 244;/* #F0FDF4 */
+
+    /* Navigation (A1: white bar, sky-blue active) */
+    --nav-surface: 255 255 255;   /* #FFFFFF */
+    --nav-active: 3 105 161;      /* #0369A1 */
+    --nav-inactive: 107 114 128;  /* #6B7280 */
+  }
+
+  .dark:root,
+  .dark {
+    --bg: 11 18 32;               /* #0B1220 */
+    --surface: 17 24 39;          /* #111827 */
+    --surface-muted: 30 41 59;    /* #1E293B */
+    --text: 241 245 249;          /* #F1F5F9 */
+    --text-muted: 148 163 184;    /* #94A3B8 */
+    --text-subtle: 100 116 139;   /* #64748B */
+    --border: 30 41 59;           /* #1E293B */
+    --border-strong: 51 65 85;    /* #334155 */
+    --overlay: 0 0 0;             /* #000000 (used with alpha) */
+
+    --primary: 56 189 248;        /* #38BDF8 */
+    --primary-strong: 125 211 252;/* #7DD3FC */
+    --primary-press: 14 165 233;  /* #0EA5E9 */
+    --primary-subtle: 30 58 79;   /* deep sky tint */
+    --accent: 249 115 22;         /* #F97316 */
+    --accent-press: 234 88 12;    /* #EA580C */
+    --accent-subtle: 67 38 18;    /* deep warm tint */
+
+    --error: 248 113 113;         /* #F87171 */
+    --error-text: 252 165 165;    /* #FCA5A5 */
+    --error-subtle: 60 22 22;
+    --error-border: 127 29 29;    /* #7F1D1D */
+
+    --warning: 251 191 36;        /* #FBBF24 */
+    --warning-fill: 245 158 11;   /* #F59E0B */
+    --warning-subtle: 60 47 18;
+
+    --success: 74 222 128;        /* #4ADE80 */
+    --success-text: 134 239 172;  /* #86EFAC */
+    --success-subtle: 20 50 32;
+
+    --nav-surface: 17 24 39;      /* #111827 */
+    --nav-active: 125 211 252;    /* #7DD3FC */
+    --nav-inactive: 100 116 139;  /* #64748B */
+  }
+}

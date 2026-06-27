@@ -4,10 +4,13 @@
 // mount the tab nav.
 
 import { useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Button } from "@/components/ui/Button";
+import { Text } from "@/components/ui/Text";
 import { useCreatePortfolio } from "@/lib/hooks";
+import { colors, fonts } from "@/lib/theme";
 
 export function CreatePortfolioScreen() {
   const [name, setName] = useState("My Cards");
@@ -24,40 +27,39 @@ export function CreatePortfolioScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-bg">
       <View className="flex-1 justify-center px-6">
-        <Text className="text-3xl font-bold text-gray-900 mb-2">
+        <Text variant="display" className="mb-2">
           Welcome to WanderFree
         </Text>
-        <Text className="text-base text-gray-600 mb-8">
+        <Text variant="body" className="text-text-muted mb-8">
           Name your first portfolio. A portfolio holds a set of credit cards
           and the benefits and spending around them. You can create more
-          later for a household, business, or someone else's cards.
+          later for a household, business, or someone else&apos;s cards.
         </Text>
 
-        <Text className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+        <Text variant="label" className="text-text-subtle uppercase mb-2">
           Portfolio name
         </Text>
         <TextInput
-          className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-6 text-gray-900"
+          className="bg-surface border border-border rounded-xl px-4 py-3 mb-6 text-text"
+          style={{ fontFamily: fonts.regular, fontSize: 16 }}
           placeholder="My Cards"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textSubtle}
           value={name}
           onChangeText={setName}
           autoFocus
         />
 
-        <Pressable
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          label="Create portfolio"
+          loading={submitting}
+          disabled={name.trim().length === 0}
           onPress={handleSubmit}
-          disabled={!canSubmit}
-          className={`rounded-xl py-3 items-center ${
-            canSubmit ? "bg-blue-600" : "bg-gray-300"
-          }`}
-        >
-          <Text className="text-white font-semibold text-base">
-            {submitting ? "Creating..." : "Create portfolio"}
-          </Text>
-        </Pressable>
+        />
       </View>
     </SafeAreaView>
   );
