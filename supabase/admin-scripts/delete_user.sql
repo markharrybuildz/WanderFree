@@ -25,9 +25,10 @@
 -- tree. Portfolios they're only a MEMBER of are kept; the membership
 -- row is removed via the profiles cascade.
 --
--- CAVEAT: if a portfolio this user created has other members, those
--- members lose access to all data hanging off it. Run
--- delete_user_preview.sql first if you need to check.
+-- SAFETY: if a portfolio this user created still has other members, this
+-- script REFUSES to run — deleting would cascade-delete those members'
+-- data. Reassign ownership or remove the other members first; run
+-- delete_user_preview.sql to see exactly who is affected.
 --
 -- Usage:
 --   1. Replace 'PASTE_EMAIL_HERE' below.
