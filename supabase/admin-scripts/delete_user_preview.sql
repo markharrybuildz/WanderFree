@@ -77,4 +77,15 @@ union all
 select 'cascade count',
        'spend_entries',
        (select count(*)::text from public.spend_entries where user_card_id in (select id from their_cards))
+union all
+-- Other members who lose access when the creator's portfolios are deleted.
+select 'shared-portfolio member (LOSES ACCESS)',
+       pm.profile_id::text,
+       coalesce(pr.display_name, '(no display name)') || ' — portfolio: ' || p.name
+  from public.portfolio_members pm
+  join their_portfolios tp on tp.id = pm.portfolio_id
+  join public.portfolios p on p.id = pm.portfolio_id
+  left join public.profiles pr on pr.id = pm.profile_id
+  join target t on true
+ where pm.profile_id <> t.id
 order by kind, id;

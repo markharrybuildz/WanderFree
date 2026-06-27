@@ -120,6 +120,8 @@ export default function SettingsScreen() {
                     onPress={() => handleDelete(p)}
                     className="ml-3 p-1"
                     hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete portfolio ${p.name}`}
                   >
                     <Trash2 size={18} color={colors.error} />
                   </Pressable>

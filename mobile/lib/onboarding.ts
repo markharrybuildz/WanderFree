@@ -12,9 +12,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const key = (userId: string) => `wanderfree-onboarded-${userId}`;
 
 export async function isOnboarded(userId: string): Promise<boolean> {
-  return (await AsyncStorage.getItem(key(userId))) === "true";
+  // Best-effort: a storage read failure must not strand the user on a
+  // loading screen, so treat "unknown" as not-onboarded.
+  try {
+    return (await AsyncStorage.getItem(key(userId))) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export async function markOnboarded(userId: string): Promise<void> {
-  await AsyncStorage.setItem(key(userId), "true");
+  // Best-effort: this flag is non-critical, so swallow write failures
+  // rather than break the success path that calls it. Worst case the
+  // welcome popup simply shows again on the next cold launch.
+  try {
+    await AsyncStorage.setItem(key(userId), "true");
+  } catch {
+    // intentionally ignored
+  }
 }

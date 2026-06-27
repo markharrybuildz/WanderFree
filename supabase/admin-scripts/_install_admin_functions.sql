@@ -31,6 +31,21 @@ begin
     return format('No auth user found with email %L — nothing deleted.', target_email);
   end if;
 
+  -- Guard: refuse if the target still owns portfolios shared with other
+  -- members — deleting them would cascade-delete those members' data.
+  if exists (
+    select 1
+      from public.portfolios p
+      join public.portfolio_members pm on pm.portfolio_id = p.id
+     where p.created_by = target_user_id
+       and pm.profile_id <> target_user_id
+  ) then
+    return format(
+      'Refusing to delete %s: they still own portfolios shared with other members. Reassign ownership or remove those members first.',
+      target_email
+    );
+  end if;
+
   with deleted as (
     delete from public.portfolios where created_by = target_user_id returning 1
   )

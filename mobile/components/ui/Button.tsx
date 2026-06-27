@@ -108,13 +108,15 @@ export function Button({
       )}
       {...rest}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === "primary" ? "#FFFFFF" : colors.primaryStrong}
-        />
-      ) : (
-        <>
+      <View className="items-center justify-center">
+        {loading ? (
+          <View className="absolute inset-0 items-center justify-center">
+            <ActivityIndicator size="small" color={iconColor[variant]} />
+          </View>
+        ) : null}
+        {/* Keep the label in flow (just hidden) while loading so the button
+            doesn't shrink. Spinner color tracks the variant. */}
+        <View className={cn("flex-row items-center gap-2", loading && "opacity-0")}>
           {leftIcon ? <View>{leftIcon}</View> : null}
           <Text
             variant="button"
@@ -122,8 +124,8 @@ export function Button({
           >
             {label}
           </Text>
-        </>
-      )}
+        </View>
+      </View>
     </Pressable>
   );
 }

@@ -149,7 +149,7 @@ export default function BenefitsScreen() {
       got += g;
       const remaining = Math.max(0, v - g);
       const d = daysUntil(b.cycle?.period_end);
-      if (!b.fully_redeemed && remaining > 0 && d != null && d <= 30) {
+      if (!b.fully_redeemed && remaining > 0 && d != null && d >= 0 && d <= 30) {
         soon += remaining;
       }
     }
@@ -193,8 +193,10 @@ export default function BenefitsScreen() {
         continue;
       }
       const d = daysUntil(b.cycle?.period_end);
-      if (d != null && d <= 7) week.push(b);
-      else if (d != null && d <= 30) month.push(b);
+      // Negative days = already expired; keep them out of the urgency
+      // buckets (consistent with BenefitRow, which only flags d >= 0).
+      if (d != null && d >= 0 && d <= 7) week.push(b);
+      else if (d != null && d >= 0 && d <= 30) month.push(b);
       else later.push(b);
     }
     const byExpiry = (a: UserVisibleBenefit, b: UserVisibleBenefit) => {

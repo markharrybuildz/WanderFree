@@ -44,6 +44,21 @@ begin
     return;
   end if;
 
+  -- Guard: refuse if the target still owns portfolios shared with other
+  -- members. Deleting them would cascade-delete those members' data.
+  -- Reassign ownership or remove the other members first (run
+  -- delete_user_preview.sql to see exactly who is affected).
+  if exists (
+    select 1
+      from public.portfolios p
+      join public.portfolio_members pm on pm.portfolio_id = p.id
+     where p.created_by = target_user_id
+       and pm.profile_id <> target_user_id
+  ) then
+    raise notice 'Refusing to delete %: they still own portfolios shared with other members — nothing deleted.', target_email;
+    return;
+  end if;
+
   delete from public.portfolios where created_by = target_user_id;
   delete from auth.users where id = target_user_id;
 

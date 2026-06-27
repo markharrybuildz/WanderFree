@@ -183,7 +183,12 @@ export default function CardDetailsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
       <View className="bg-surface border-b border-border px-4 py-4 flex-row items-center gap-3">
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to cards"
+        >
           <ArrowLeft size={22} color={colors.text} />
         </Pressable>
         <View className="flex-1">
