@@ -4,22 +4,29 @@
 //   1. Value hero — $ left to redeem, total tracked, $ expiring soon, progress.
 //   2. Filter bar — segmented expiry horizon + Category / Card sheet pickers.
 //   3. Urgency-grouped list (SectionList): Expiring this week / This month /
-//      Later / Redeemed. Each row shows $ value (amber when expiring soon),
-//      an "Ends in N days" label, and a tap-to-redeem checkbox.
+//      Later / Redeemed. Each row: a colored category icon, the benefit name
+//      (leading "$" split into a value pill), and an amber "N days left" tag
+//      when expiring soon. Tap a row to mark it used; long-press opens the
+//      benefit detail screen.
 //
 // Dollar math uses each benefit's cap (cycle.allotted_value, falling back to
 // value_per_period / annual_value) and its redeemed_amount. Benefits with no
 // dollar cap are still listed but don't contribute to the $ totals.
 
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import {
+  Car,
   Check,
   ChevronDown,
-  CreditCard,
   Fuel,
+  HeartPulse,
   type LucideIcon,
   Plane,
+  ShoppingBag,
   ShoppingCart,
+  Sparkles,
+  Ticket,
   Utensils,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
@@ -56,19 +63,37 @@ const EXPIRY_LABELS: Record<ExpiryFilter, string> = {
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  dining: Utensils,
-  travel: Plane,
-  flights: Plane,
-  hotels: Plane,
-  gas: Fuel,
-  ev_charging: Fuel,
-  grocery: ShoppingCart,
-  wholesale_club: ShoppingCart,
-};
+// Category → colored icon. Matched by keyword so both enum-style keys
+// ("wholesale_club") and display names ("Groceries") resolve.
+const CAT_STYLES: { test: RegExp; Icon: LucideIcon; bg: string; fg: string }[] = [
+  { test: /dining|restaurant|food/, Icon: Utensils, bg: "bg-amber-100", fg: "#B45309" },
+  { test: /travel|flight|air|hotel|lodging/, Icon: Plane, bg: "bg-sky-100", fg: "#0284C7" },
+  { test: /grocer|wholesale|market/, Icon: ShoppingCart, bg: "bg-green-100", fg: "#16A34A" },
+  { test: /gas|fuel|\bev\b|charg/, Icon: Fuel, bg: "bg-orange-100", fg: "#EA580C" },
+  { test: /entertain|stream|ticket/, Icon: Ticket, bg: "bg-purple-100", fg: "#9333EA" },
+  { test: /retail|shop|store/, Icon: ShoppingBag, bg: "bg-rose-100", fg: "#E11D48" },
+  { test: /transport|transit|ride|car/, Icon: Car, bg: "bg-indigo-100", fg: "#4F46E5" },
+  { test: /wellness|health|fitness|gym/, Icon: HeartPulse, bg: "bg-teal-100", fg: "#0D9488" },
+];
 
-function iconFor(name?: string | null): LucideIcon {
-  return CATEGORY_ICONS[(name ?? "").toLowerCase()] ?? CreditCard;
+function catStyle(name?: string | null): { Icon: LucideIcon; bg: string; fg: string } {
+  const n = (name ?? "").toLowerCase();
+  return (
+    CAT_STYLES.find((c) => c.test.test(n)) ?? {
+      Icon: Sparkles,
+      bg: "bg-sky-100",
+      fg: "#0284C7",
+    }
+  );
+}
+
+// Benefit names in the catalog embed the headline value, e.g.
+// "$120 Peloton Membership Credit". Split that leading amount off so the row
+// title is clean text and the value appears once, in the value pill.
+function splitNameValue(b: UserVisibleBenefit): { title: string; value: number | null } {
+  const m = b.name.match(/^\$\s?([\d,]+(?:\.\d+)?)\s+(.+)$/);
+  if (m) return { title: m[2].trim(), value: parseFloat(m[1].replace(/,/g, "")) };
+  return { title: b.name, value: b.annual_value ?? b.value_per_period ?? null };
 }
 
 /** The benefit's dollar cap for the current cycle, best-available source. */
@@ -86,21 +111,9 @@ function usd(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
-function endLabel(b: UserVisibleBenefit): string {
-  if (b.fully_redeemed) return "Redeemed";
-  const end = b.cycle?.period_end;
-  if (!end) return "No expiry";
-  const d = daysUntil(end);
-  if (d == null) return "No expiry";
-  if (d <= 0) return "Expired";
-  if (d <= 7) {
-    const n = Math.ceil(d);
-    return `Ends in ${n} day${n === 1 ? "" : "s"}`;
-  }
-  return `Ends ${new Date(end).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  })}`;
+function daysLeftLabel(d: number): string {
+  const n = Math.max(1, Math.ceil(d));
+  return `${n} day${n === 1 ? "" : "s"} left`;
 }
 
 export default function BenefitsScreen() {
@@ -329,6 +342,14 @@ export default function BenefitsScreen() {
                 { onError: (e) => notify("Redemption failed", (e as Error).message) },
               )
             }
+            onOpen={() =>
+              router.push({
+                pathname: "/benefit-detail/[key]" as never,
+                params: {
+                  key: `${item.user_card_id}__${item.benefit_definition_id}`,
+                },
+              })
+            }
           />
         )}
         ListEmptyComponent={
@@ -519,63 +540,69 @@ function SheetModal({
 function BenefitRow({
   b,
   onToggle,
+  onOpen,
 }: {
   b: UserVisibleBenefit;
   onToggle: () => void;
+  onOpen: () => void;
 }) {
-  const Icon = iconFor(b.benefit_category?.name);
-  const cap = benefitCap(b);
+  const { Icon, bg, fg } = catStyle(b.benefit_category?.name);
+  const { title, value } = splitNameValue(b);
   const d = daysUntil(b.cycle?.period_end);
   const soon = !b.fully_redeemed && d != null && d >= 0 && d <= 7;
-  const valueStr = cap != null ? usd(cap) : "—";
 
   return (
     <Pressable
       onPress={onToggle}
+      onLongPress={onOpen}
+      delayLongPress={260}
       className={cn(
         "bg-surface rounded-2xl p-3.5 flex-row items-center border border-border",
         b.fully_redeemed && "opacity-60",
       )}
     >
-      <View className="p-2.5 bg-surface-muted rounded-xl">
-        <Icon size={20} color={colors.textMuted} />
+      {/* Colored category icon; a green check badge appears once redeemed. */}
+      <View>
+        <View className={cn("p-2.5 rounded-xl", bg)}>
+          <Icon size={20} color={fg} />
+        </View>
+        {b.fully_redeemed && (
+          <View className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success items-center justify-center border border-surface">
+            <Check size={10} color="white" />
+          </View>
+        )}
       </View>
 
-      <View className="flex-1 ml-3 mr-2">
+      <View className="flex-1 ml-3 mr-2 flex-row items-center">
         <Text
           variant="title"
           numberOfLines={1}
-          className={b.fully_redeemed ? "text-text-muted line-through" : "text-text"}
+          className={cn("shrink", b.fully_redeemed ? "text-text-muted" : "text-text")}
         >
-          {b.name}
+          {title}
         </Text>
-        <Text variant="caption" numberOfLines={1} className="text-text-muted mt-0.5">
-          {b.card_name}
-        </Text>
-      </View>
-
-      <View className="items-end mr-3">
-        <Text variant="title" className={soon ? "text-warning" : "text-text"}>
-          {valueStr}
-        </Text>
-        <Text
-          variant="caption"
-          className={cn("mt-0.5", soon ? "text-warning" : "text-text-subtle")}
-        >
-          {endLabel(b)}
-        </Text>
-      </View>
-
-      <View
-        className={cn(
-          "w-7 h-7 rounded-full items-center justify-center border-2",
-          b.fully_redeemed
-            ? "bg-success border-success"
-            : "border-accent bg-transparent",
+        {soon && d != null && (
+          <View className="shrink-0 ml-2 px-2 py-0.5 rounded-full bg-warning-subtle">
+            <Text variant="label" className="text-warning">
+              {daysLeftLabel(d)}
+            </Text>
+          </View>
         )}
-      >
-        {b.fully_redeemed && <Check size={15} color="white" />}
       </View>
+
+      {value != null ? (
+        <View className="shrink-0 px-3 py-1.5 rounded-full bg-primary-subtle">
+          <Text variant="callout" className="text-primary-strong">
+            {usd(value)}
+          </Text>
+        </View>
+      ) : (
+        <View className="shrink-0 px-3 py-1.5 rounded-full bg-surface-muted">
+          <Text variant="callout" className="text-text-muted">
+            Perk
+          </Text>
+        </View>
+      )}
     </Pressable>
   );
 }

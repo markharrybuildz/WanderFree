@@ -84,6 +84,7 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen name="card-details/[id]" options={{ href: null }} />
+      <Tabs.Screen name="benefit-detail/[key]" options={{ href: null }} />
     </Tabs>
   );
 }
