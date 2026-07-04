@@ -44,6 +44,9 @@
     "extra": {
       "router": {
         "origin": false
+      },
+      "eas": {
+        "projectId": "1e84f05c-817e-421a-a7c8-f8787db323c4"
       }
     }
   }
