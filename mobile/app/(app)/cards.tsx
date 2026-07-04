@@ -8,7 +8,7 @@
 // primitives + procedural card art); all data/handler logic below is unchanged.
 
 import { router } from "expo-router";
-import { Trash2 } from "lucide-react-native";
+import { Check, Plus } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,7 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CardArtThumbnail } from "@/components/CardArtThumbnail";
-import { Button, iconColor } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { confirmDestructive, notify } from "@/lib/dialog";
 import {
@@ -201,7 +201,7 @@ export default function CardsScreen() {
             <View className="flex-1 flex-row items-center pr-3">
               <CardArtThumbnail seed={item.id} />
               <View className="flex-1 ml-3">
-                <Text variant="title" numberOfLines={1}>
+                <Text variant="title" numberOfLines={2}>
                   {item.name}
                 </Text>
                 <Text variant="caption" className="text-text-muted mt-0.5">
@@ -235,15 +235,16 @@ export default function CardsScreen() {
                   {rowContent}
                 </Pressable>
               ) : (
-                rowContent
+                <Pressable onPress={() => startAdd(item)} className="flex-1">
+                  {rowContent}
+                </Pressable>
               )}
 
               {held && heldCard ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  label="Remove"
-                  leftIcon={<Trash2 size={14} color={iconColor.destructive} />}
+                <Pressable
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${item.name}`}
                   onPress={() =>
                     confirmDestructive({
                       title: "Remove card?",
@@ -257,14 +258,20 @@ export default function CardsScreen() {
                         }),
                     })
                   }
-                />
+                  className="w-10 h-10 rounded-full bg-success items-center justify-center"
+                >
+                  <Check size={20} color="white" />
+                </Pressable>
               ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  label="Add"
+                <Pressable
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${item.name}`}
                   onPress={() => startAdd(item)}
-                />
+                  className="w-10 h-10 rounded-full bg-primary items-center justify-center"
+                >
+                  <Plus size={22} color="white" />
+                </Pressable>
               )}
             </View>
           );
