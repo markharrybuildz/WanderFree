@@ -4,7 +4,7 @@
 // mount the tab nav.
 
 import { useState } from "react";
-import { Alert, TextInput, View } from "react-native";
+import { Alert, Image, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -29,6 +29,11 @@ export function CreatePortfolioScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <View className="flex-1 justify-center px-6">
+        <Image
+          source={require("../assets/logo-mark.png")}
+          style={{ width: 88, height: 88 }}
+          className="mb-2 -ml-2"
+        />
         <Text variant="display" className="mb-2">
           Welcome to WanderFree
         </Text>

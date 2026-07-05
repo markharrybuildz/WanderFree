@@ -6,7 +6,7 @@
 
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -55,6 +55,11 @@ export default function SignInScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg">
       <View className="flex-1 justify-center px-6">
+        <Image
+          source={require("../../assets/logo-mark.png")}
+          style={{ width: 88, height: 88 }}
+          className="mb-2 -ml-2"
+        />
         <Text variant="display" className="mb-2">WanderFree</Text>
         <Text variant="body" className="text-text-muted mb-8">
           {mode === "sign-in" ? "Sign in to your account" : "Create an account"}
