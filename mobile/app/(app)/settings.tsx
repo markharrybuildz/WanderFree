@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
-import { signOut, useAuthSession } from "@/lib/auth";
+import { deleteAccount, signOut, useAuthSession } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import {
   useCreatePortfolio,
@@ -38,6 +38,29 @@ export default function SettingsScreen() {
       return;
     }
     router.replace("/(auth)/sign-in");
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your account and all your data — cards, portfolios, benefit history, and spending. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await deleteAccount();
+            if (error) {
+              Alert.alert("Could not delete account", error.message);
+              return;
+            }
+            await signOut();
+            router.replace("/(auth)/sign-in");
+          },
+        },
+      ],
+    );
   }
 
   function handleSwitch(p: Portfolio) {
@@ -145,6 +168,24 @@ export default function SettingsScreen() {
           className="bg-surface rounded-xl p-4 border border-border"
         >
           <Text variant="callout" className="text-error-text">Sign out</Text>
+        </Pressable>
+
+        <Button
+          variant="destructive"
+          size="lg"
+          fullWidth
+          label="Delete account"
+          className="mt-3"
+          onPress={handleDeleteAccount}
+        />
+
+        <Pressable
+          onPress={() => router.push("/privacy" as never)}
+          className="mt-5 items-center"
+        >
+          <Text variant="caption" className="text-text-subtle underline">
+            Privacy Policy
+          </Text>
         </Pressable>
       </View>
 

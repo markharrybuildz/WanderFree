@@ -107,6 +107,19 @@ export default function SignInScreen() {
               : "Already have an account? Sign in"}
           </Text>
         </Pressable>
+
+        <Pressable
+          onPress={() => router.push("/privacy" as never)}
+          className="mt-8 items-center"
+        >
+          <Text variant="caption" className="text-text-subtle text-center">
+            By continuing, you agree to our{" "}
+            <Text variant="caption" className="text-text-muted underline">
+              Privacy Policy
+            </Text>
+            .
+          </Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
