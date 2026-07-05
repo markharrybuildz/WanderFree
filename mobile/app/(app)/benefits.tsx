@@ -576,7 +576,7 @@ function BenefitRow({
       <View className="flex-1 ml-3 mr-2 flex-row items-center">
         <Text
           variant="title"
-          numberOfLines={1}
+          numberOfLines={2}
           className={cn("shrink", b.fully_redeemed ? "text-text-muted" : "text-text")}
         >
           {title}
