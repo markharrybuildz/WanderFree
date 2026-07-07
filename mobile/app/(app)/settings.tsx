@@ -3,17 +3,13 @@
 import { router } from "expo-router";
 import { Check, Plus, Trash2 } from "lucide-react-native";
 import { useState } from "react";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Modal, Pressable, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { signOut, useAuthSession } from "@/lib/auth";
+import { Button } from "@/components/ui/Button";
+import { Text } from "@/components/ui/Text";
+import { deleteAccount, signOut, useAuthSession } from "@/lib/auth";
+import { cn } from "@/lib/cn";
 import {
   useCreatePortfolio,
   useCurrentPortfolio,
@@ -21,6 +17,7 @@ import {
   useSetCurrentPortfolio,
   useUserPortfolios,
 } from "@/lib/hooks";
+import { colors, fonts } from "@/lib/theme";
 import type { Portfolio } from "@/lib/types";
 
 export default function SettingsScreen() {
@@ -41,6 +38,29 @@ export default function SettingsScreen() {
       return;
     }
     router.replace("/(auth)/sign-in");
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your account and all your data — cards, portfolios, benefit history, and spending. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await deleteAccount();
+            if (error) {
+              Alert.alert("Could not delete account", error.message);
+              return;
+            }
+            await signOut();
+            router.replace("/(auth)/sign-in");
+          },
+        },
+      ],
+    );
   }
 
   function handleSwitch(p: Portfolio) {
@@ -81,55 +101,52 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <View className="bg-white border-b border-gray-200 px-4 py-4">
-        <Text className="text-2xl font-bold text-gray-900">Settings</Text>
+    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+      <View className="bg-surface border-b border-border px-4 py-4">
+        <Text variant="display">Settings</Text>
       </View>
 
       <View className="p-4">
-        <View className="bg-white rounded-xl p-4 mb-4 border border-gray-200">
-          <Text className="text-xs text-gray-500 uppercase tracking-wide">
+        <View className="bg-surface rounded-xl p-4 mb-4 border border-border">
+          <Text variant="label" className="text-text-subtle uppercase">
             Signed in as
           </Text>
-          <Text className="text-base text-gray-900 mt-1">
+          <Text variant="body" className="mt-1">
             {session?.user.email}
           </Text>
         </View>
 
-        <Text className="text-xs text-gray-500 uppercase tracking-wide px-2 mb-2 mt-2">
+        <Text variant="label" className="text-text-subtle uppercase px-2 mb-2 mt-2">
           Portfolio
         </Text>
-        <View className="bg-white rounded-xl border border-gray-200 mb-4 overflow-hidden">
+        <View className="bg-surface rounded-xl border border-border mb-4 overflow-hidden">
           {(portfolios ?? []).map((p, idx) => {
             const isCurrent = p.id === currentPortfolio?.id;
             const canDelete = !!session && p.created_by === session.user.id;
             return (
               <View
                 key={p.id}
-                className={`flex-row items-center px-4 py-3 ${
-                  idx > 0 ? "border-t border-gray-100" : ""
-                }`}
+                className={cn(
+                  "flex-row items-center px-4 py-3",
+                  idx > 0 && "border-t border-border",
+                )}
               >
                 <Pressable
                   onPress={() => handleSwitch(p)}
                   className="flex-1 flex-row items-center justify-between"
                 >
-                  <Text
-                    className={`text-base ${
-                      isCurrent ? "text-gray-900 font-medium" : "text-gray-800"
-                    }`}
-                  >
-                    {p.name}
-                  </Text>
-                  {isCurrent && <Check size={18} color="#2563eb" />}
+                  <Text variant={isCurrent ? "title" : "body"}>{p.name}</Text>
+                  {isCurrent && <Check size={18} color={colors.primaryStrong} />}
                 </Pressable>
                 {canDelete && (
                   <Pressable
                     onPress={() => handleDelete(p)}
                     className="ml-3 p-1"
                     hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete portfolio ${p.name}`}
                   >
-                    <Trash2 size={18} color="#dc2626" />
+                    <Trash2 size={18} color={colors.error} />
                   </Pressable>
                 )}
               </View>
@@ -137,10 +154,10 @@ export default function SettingsScreen() {
           })}
           <Pressable
             onPress={() => setCreating(true)}
-            className="flex-row items-center gap-2 px-4 py-3 border-t border-gray-100"
+            className="flex-row items-center gap-2 px-4 py-3 border-t border-border"
           >
-            <Plus size={18} color="#2563eb" />
-            <Text className="text-blue-600 font-medium">
+            <Plus size={18} color={colors.primaryStrong} />
+            <Text variant="callout" className="text-primary-strong">
               Create new portfolio
             </Text>
           </Pressable>
@@ -148,9 +165,27 @@ export default function SettingsScreen() {
 
         <Pressable
           onPress={handleSignOut}
-          className="bg-white rounded-xl p-4 border border-gray-200"
+          className="bg-surface rounded-xl p-4 border border-border"
         >
-          <Text className="text-red-600 font-medium">Sign out</Text>
+          <Text variant="callout" className="text-error-text">Sign out</Text>
+        </Pressable>
+
+        <Button
+          variant="destructive"
+          size="lg"
+          fullWidth
+          label="Delete account"
+          className="mt-3"
+          onPress={handleDeleteAccount}
+        />
+
+        <Pressable
+          onPress={() => router.push("/privacy" as never)}
+          className="mt-5 items-center"
+        >
+          <Text variant="caption" className="text-text-subtle underline">
+            Privacy Policy
+          </Text>
         </Pressable>
       </View>
 
@@ -160,42 +195,36 @@ export default function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => setCreating(false)}
       >
-        <View className="flex-1 items-center justify-center bg-black/40 px-6">
-          <View className="bg-white rounded-2xl p-5 w-full max-w-md">
-            <Text className="text-lg font-semibold text-gray-900 mb-4">
-              New portfolio
-            </Text>
+        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
+          <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
+            <Text variant="h2" className="mb-4">New portfolio</Text>
             <TextInput
-              className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              style={{ fontFamily: fonts.regular, fontSize: 16 }}
               placeholder="Name (e.g. Household, Business)"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textSubtle}
               value={newName}
               onChangeText={setNewName}
               autoFocus
             />
             <View className="flex-row gap-3">
-              <Pressable
+              <Button
+                variant="ghost"
+                label="Cancel"
+                className="flex-1 bg-surface-muted"
                 onPress={() => {
                   setCreating(false);
                   setNewName("");
                 }}
-                className="flex-1 py-3 rounded-xl bg-gray-100 items-center"
-              >
-                <Text className="text-gray-700 font-medium">Cancel</Text>
-              </Pressable>
-              <Pressable
+              />
+              <Button
+                variant="primary"
+                label="Create"
+                className="flex-1"
+                disabled={!newName.trim()}
+                loading={create.isPending}
                 onPress={handleCreate}
-                disabled={!newName.trim() || create.isPending}
-                className={`flex-1 py-3 rounded-xl items-center ${
-                  !newName.trim() || create.isPending
-                    ? "bg-gray-300"
-                    : "bg-blue-600"
-                }`}
-              >
-                <Text className="text-white font-medium">
-                  {create.isPending ? "Creating..." : "Create"}
-                </Text>
-              </Pressable>
+              />
             </View>
           </View>
         </View>

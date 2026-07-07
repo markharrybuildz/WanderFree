@@ -66,3 +66,12 @@ export async function signUpWithEmail(email: string, password: string) {
 export async function signOut() {
   return supabase.auth.signOut();
 }
+
+/**
+ * Permanently delete the signed-in user's account and all their data via the
+ * `delete_own_account` RPC (see supabase/migrations). Only ever affects the
+ * caller. Returns the RPC error (e.g. the shared-portfolio guard) if any.
+ */
+export async function deleteAccount() {
+  return supabase.rpc("delete_own_account");
+}

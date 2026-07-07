@@ -10,12 +10,14 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Button } from "@/components/ui/Button";
+import { Text } from "@/components/ui/Text";
+import { cn } from "@/lib/cn";
 import { confirmDestructive, notify } from "@/lib/dialog";
 import {
   useCardDetails,
@@ -23,6 +25,7 @@ import {
   useRemoveUserCard,
   useUpdateUserCard,
 } from "@/lib/hooks";
+import { colors, fonts } from "@/lib/theme";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -112,9 +115,9 @@ export default function CardDetailsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-bg">
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
+          <ActivityIndicator color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -122,17 +125,12 @@ export default function CardDetailsScreen() {
 
   if (error || !card) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-bg">
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-red-600 text-center">
+          <Text variant="body" className="text-error-text text-center mb-4">
             {error ? (error as Error).message : "Card not found."}
           </Text>
-          <Pressable
-            onPress={() => router.back()}
-            className="mt-4 px-4 py-2 bg-blue-600 rounded-xl"
-          >
-            <Text className="text-white font-medium">Back</Text>
-          </Pressable>
+          <Button variant="primary" label="Back" onPress={() => router.back()} />
         </View>
       </SafeAreaView>
     );
@@ -151,7 +149,7 @@ export default function CardDetailsScreen() {
       annual_fee: number;
       issuer: { name: string } | null;
       rewards_program: { name: string; unit_type: string } | null;
-      benefit_definitions: Array<{
+      benefit_definitions: {
         id: string;
         name: string;
         value_per_period: number | null;
@@ -160,22 +158,22 @@ export default function CardDetailsScreen() {
         reset_basis: string;
         requires_enrollment: boolean;
         benefit_category: { name: string } | null;
-      }>;
+      }[];
     } | null;
-    user_benefit_cycles: Array<{
+    user_benefit_cycles: {
       id: string;
       benefit_definition_id: string;
       period_start: string;
       period_end: string;
       allotted_value: number | null;
       status: string;
-    }>;
-    benefit_redemptions: Array<{
+    }[];
+    benefit_redemptions: {
       id: string;
       benefit_definition_id: string;
       benefit_cycle_id: string;
       amount: number;
-    }>;
+    }[];
   };
 
   const product = c.card_product;
@@ -183,16 +181,21 @@ export default function CardDetailsScreen() {
   const annualFee = product?.annual_fee != null ? `$${Number(product.annual_fee).toFixed(0)}/yr` : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <View className="bg-white border-b border-gray-200 px-4 py-4 flex-row items-center gap-3">
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft size={22} color="#374151" />
+    <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+      <View className="bg-surface border-b border-border px-4 py-4 flex-row items-center gap-3">
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back to cards"
+        >
+          <ArrowLeft size={22} color={colors.text} />
         </Pressable>
         <View className="flex-1">
-          <Text className="text-xl font-bold text-gray-900" numberOfLines={1}>
+          <Text variant="h2" numberOfLines={1}>
             {product?.name ?? "Card"}
           </Text>
-          <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+          <Text variant="caption" className="text-text-muted mt-0.5" numberOfLines={1}>
             {product?.issuer?.name}
             {product?.network ? ` · ${product.network}` : ""}
             {annualFee ? ` · ${annualFee}` : ""}
@@ -201,9 +204,9 @@ export default function CardDetailsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-        <View className="bg-white rounded-2xl border border-gray-200">
-          <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
-            <Text className="text-xs text-gray-500 uppercase tracking-wide">
+        <View className="bg-surface rounded-2xl border border-border">
+          <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+            <Text variant="label" className="text-text-subtle uppercase">
               Details
             </Text>
             <Pressable
@@ -211,8 +214,8 @@ export default function CardDetailsScreen() {
               className="flex-row items-center gap-1 px-2 py-1"
               hitSlop={4}
             >
-              <Pencil size={13} color="#2563eb" />
-              <Text className="text-sm text-blue-600 font-medium">Edit</Text>
+              <Pencil size={13} color={colors.primaryStrong} />
+              <Text variant="label" className="text-primary-strong">Edit</Text>
             </Pressable>
           </View>
           <DetailRow label="Nickname" value={c.nickname ?? "—"} />
@@ -220,9 +223,9 @@ export default function CardDetailsScreen() {
           <DetailRow label="Opened on" value={formatOpenedOn(c.opened_on)} last />
         </View>
 
-        <View className="bg-white rounded-2xl border border-gray-200">
-          <View className="px-4 py-3 border-b border-gray-100">
-            <Text className="text-xs text-gray-500 uppercase tracking-wide">
+        <View className="bg-surface rounded-2xl border border-border">
+          <View className="px-4 py-3 border-b border-border">
+            <Text variant="label" className="text-text-subtle uppercase">
               Benefits ({product?.benefit_definitions.length ?? 0})
             </Text>
           </View>
@@ -250,21 +253,21 @@ export default function CardDetailsScreen() {
             return (
               <View
                 key={bd.id}
-                className={`px-4 py-3 ${last ? "" : "border-b border-gray-100"}`}
+                className={cn("px-4 py-3", !last && "border-b border-border")}
               >
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-sm font-medium text-gray-900 flex-1 pr-3">
+                  <Text variant="title" className="flex-1 pr-3">
                     {bd.name}
                   </Text>
-                  <Text className="text-sm text-gray-700">{value}</Text>
+                  <Text variant="callout" className="text-text-muted">{value}</Text>
                 </View>
-                <Text className="text-xs text-gray-500 mt-1">
+                <Text variant="caption" className="text-text-muted mt-1">
                   {bd.reset_frequency} · {bd.reset_basis}
                   {bd.benefit_category ? ` · ${bd.benefit_category.name}` : ""}
                   {bd.requires_enrollment ? " · enrolment required" : ""}
                 </Text>
                 {cycle ? (
-                  <Text className="text-xs text-gray-600 mt-1">
+                  <Text variant="caption" className="text-text-muted mt-1">
                     {formatPeriod(cycle.period_start, cycle.period_end)} ·{" "}
                     Redeemed ${redeemed}
                     {cycle.allotted_value != null
@@ -274,7 +277,7 @@ export default function CardDetailsScreen() {
                     {cycle.status}
                   </Text>
                 ) : (
-                  <Text className="text-xs text-orange-600 mt-1">
+                  <Text variant="caption" className="text-warning mt-1">
                     No active cycle
                   </Text>
                 )}
@@ -283,20 +286,21 @@ export default function CardDetailsScreen() {
           })}
           {(product?.benefit_definitions.length ?? 0) === 0 && (
             <View className="px-4 py-6 items-center">
-              <Text className="text-sm text-gray-500">
+              <Text variant="callout" className="text-text-muted">
                 No benefits defined for this card.
               </Text>
             </View>
           )}
         </View>
 
-        <Pressable
+        <Button
+          variant="destructive"
+          size="lg"
+          fullWidth
+          label="Remove this card"
+          leftIcon={<Trash2 size={16} color={colors.errorText} />}
           onPress={handleRemove}
-          className="bg-white rounded-2xl border border-red-200 px-4 py-4 flex-row items-center justify-center gap-2"
-        >
-          <Trash2 size={16} color="#dc2626" />
-          <Text className="text-red-600 font-medium">Remove this card</Text>
-        </Pressable>
+        />
       </ScrollView>
 
       <Modal
@@ -305,43 +309,44 @@ export default function CardDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setEditing(false)}
       >
-        <View className="flex-1 items-center justify-center bg-black/40 px-6">
-          <View className="bg-white rounded-2xl p-5 w-full max-w-md">
-            <Text className="text-lg font-semibold text-gray-900 mb-4">
-              Edit card details
-            </Text>
+        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
+          <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
+            <Text variant="h2" className="mb-4">Edit card details</Text>
 
-            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+            <Text variant="label" className="text-text-subtle uppercase mb-2">
               Nickname
             </Text>
             <TextInput
-              className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              style={{ fontFamily: fonts.regular, fontSize: 16 }}
               placeholder="e.g. Travel card"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textSubtle}
               value={nickname}
               onChangeText={setNickname}
             />
 
-            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+            <Text variant="label" className="text-text-subtle uppercase mb-2">
               Last 4 digits
             </Text>
             <TextInput
-              className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              style={{ fontFamily: fonts.regular, fontSize: 16 }}
               placeholder="1234"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textSubtle}
               value={lastFour}
               onChangeText={setLastFour}
               keyboardType="number-pad"
               maxLength={4}
             />
 
-            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+            <Text variant="label" className="text-text-subtle uppercase mb-2">
               Opened on
             </Text>
             <TextInput
-              className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-900"
+              className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
+              style={{ fontFamily: fonts.regular, fontSize: 16 }}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textSubtle}
               value={openedOn}
               onChangeText={setOpenedOn}
               autoCapitalize="none"
@@ -349,23 +354,19 @@ export default function CardDetailsScreen() {
             />
 
             <View className="flex-row gap-3">
-              <Pressable
+              <Button
+                variant="ghost"
+                label="Cancel"
+                className="flex-1 bg-surface-muted"
                 onPress={() => setEditing(false)}
-                className="flex-1 py-3 rounded-xl bg-gray-100 items-center"
-              >
-                <Text className="text-gray-700 font-medium">Cancel</Text>
-              </Pressable>
-              <Pressable
+              />
+              <Button
+                variant="primary"
+                label="Save"
+                className="flex-1"
+                loading={update.isPending}
                 onPress={commitEdit}
-                disabled={update.isPending}
-                className={`flex-1 py-3 rounded-xl items-center ${
-                  update.isPending ? "bg-gray-300" : "bg-blue-600"
-                }`}
-              >
-                <Text className="text-white font-medium">
-                  {update.isPending ? "Saving..." : "Save"}
-                </Text>
-              </Pressable>
+              />
             </View>
           </View>
         </View>
@@ -385,12 +386,13 @@ function DetailRow({
 }) {
   return (
     <View
-      className={`flex-row items-center justify-between px-4 py-3 ${
-        last ? "" : "border-b border-gray-100"
-      }`}
+      className={cn(
+        "flex-row items-center justify-between px-4 py-3",
+        !last && "border-b border-border",
+      )}
     >
-      <Text className="text-sm text-gray-600">{label}</Text>
-      <Text className="text-sm text-gray-900 font-medium">{value}</Text>
+      <Text variant="callout" className="text-text-muted">{label}</Text>
+      <Text variant="title">{value}</Text>
     </View>
   );
 }

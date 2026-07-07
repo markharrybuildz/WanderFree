@@ -12,6 +12,7 @@ import { ActivityIndicator, View } from "react-native";
 import { CreatePortfolioScreen } from "@/components/CreatePortfolioScreen";
 import { useAuthSession } from "@/lib/auth";
 import { useCurrentPortfolio } from "@/lib/hooks";
+import { colors, fonts } from "@/lib/theme";
 
 export default function AppLayout() {
   const { session, loading: authLoading } = useAuthSession();
@@ -48,8 +49,17 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#2563eb",
-        tabBarInactiveTintColor: "#6b7280",
+        // A1 nav: clean white bar, sky-blue active, grey inactive.
+        tabBarActiveTintColor: colors.navActive,
+        tabBarInactiveTintColor: colors.navInactive,
+        tabBarStyle: {
+          backgroundColor: colors.navSurface,
+          borderTopColor: colors.border,
+        },
+        tabBarLabelStyle: {
+          fontFamily: fonts.medium,
+          fontSize: 11,
+        },
       }}
     >
       <Tabs.Screen
@@ -74,6 +84,7 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen name="card-details/[id]" options={{ href: null }} />
+      <Tabs.Screen name="benefit-detail/[key]" options={{ href: null }} />
     </Tabs>
   );
 }

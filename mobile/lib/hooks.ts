@@ -19,6 +19,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { markOnboarded } from "./onboarding";
 import { supabase } from "./supabase";
 import type {
   CardProduct,
@@ -493,7 +494,13 @@ export function useAddUserCard(portfolioId: string | undefined) {
         if (cyErr) throw cyErr;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Adding a card ends onboarding even if the user never tapped "Got
+      // it" — otherwise they'd keep landing on Cards on every cold launch.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) await markOnboarded(user.id);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
     },
