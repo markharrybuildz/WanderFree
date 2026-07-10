@@ -27,7 +27,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -52,19 +52,23 @@ export default function RootLayout() {
 
   const [ready, setReady] = useState(false);
 
-  // Become ready as soon as fonts resolve (or fail)…
+  // Become ready as soon as fonts resolve (or fail); otherwise fall back
+  // after the timeout. Guarding the timer on the font state means it's
+  // cleared the moment fonts win, so a slow timer can't fire later and
+  // stomp an already-ready app.
   useEffect(() => {
-    if (fontsLoaded || fontError) setReady(true);
-  }, [fontsLoaded, fontError]);
-
-  // …or after the timeout, whichever comes first.
-  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      setReady(true);
+      return;
+    }
     const t = setTimeout(() => setReady(true), FONT_TIMEOUT_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [fontsLoaded, fontError]);
 
-  // Hide the native splash once we're ready to draw.
-  useEffect(() => {
+  // Hide the native splash on the first layout of the real tree (not in an
+  // effect), so the splash stays up until content has actually painted —
+  // avoids a one-frame flash of a blank screen between hide and first paint.
+  const onLayout = useCallback(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
   }, [ready]);
 
@@ -73,7 +77,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayout}>
       <SafeAreaProvider>
         <PersistQueryClientProvider
           client={queryClient}

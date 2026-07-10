@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
+import { DetailRow } from "@/components/ui/DetailRow";
 import { Text } from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
 import { confirmDestructive, notify } from "@/lib/dialog";
@@ -375,24 +376,3 @@ export default function CardDetailsScreen() {
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  last,
-}: {
-  label: string;
-  value: string;
-  last?: boolean;
-}) {
-  return (
-    <View
-      className={cn(
-        "flex-row items-center justify-between px-4 py-3",
-        !last && "border-b border-border",
-      )}
-    >
-      <Text variant="callout" className="text-text-muted">{label}</Text>
-      <Text variant="title">{value}</Text>
-    </View>
-  );
-}
