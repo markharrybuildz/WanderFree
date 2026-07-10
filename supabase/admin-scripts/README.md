@@ -6,45 +6,44 @@ portfolio, patching catalog data, etc. Run these from Supabase Studio's
 
 Convention: every destructive script has a sibling `*_preview.sql` that
 returns the rows it would touch, without modifying anything. Run the
-preview first, look at the output, then run the destructive script.
+preview first, look at the output, then run the destructive operation.
 
 Files prefixed with `_install_` are one-time setup — run them once per
-environment to register helper functions that the per-operation scripts
-then call.
+environment to register helper functions that you then call.
 
 | Script | Purpose |
 |---|---|
 | `_install_admin_functions.sql` | One-time: installs `admin_delete_user(email)`. |
-| `delete_user.sql` | Standalone hard-delete (no function install needed). Edit email, run. |
-| `delete_user_preview.sql` | Read-only preview of what `delete_user.sql` would touch. |
+| `delete_user_preview.sql` | Read-only preview of what `admin_delete_user()` would touch. |
 
-## Two workflows
+User deletion is a single canonical implementation, `public.purge_user(uuid)`,
+shipped in migration `20260710130000_purge_user_helper.sql`. Both the self-serve
+RPC (`delete_own_account()`) and the admin helper (`admin_delete_user()`)
+delegate to it, so there is exactly one copy of the transfer/cascade logic.
 
-**One-off deletion** — open `delete_user.sql`, edit the email
-placeholder, paste into Supabase Studio's SQL Editor, run. Optionally
-run `delete_user_preview.sql` first.
+## Deleting a user
 
-**Repeated deletion** (e.g. testing onboarding by deleting the same
-test account over and over): run `_install_admin_functions.sql` once
-to register `admin_delete_user(text)`. From then on, deletion is a
-single line in the SQL Editor:
+Run `_install_admin_functions.sql` once per environment to register
+`admin_delete_user(text)`. From then on, deletion is a single line in the SQL
+Editor:
 
 ```sql
 select admin_delete_user('user@example.com');
 ```
 
-The function returns a human-readable confirmation including the user
-id and the number of portfolios it deleted.
+Optionally run `delete_user_preview.sql` first (edit the email placeholder) to
+see exactly what will be touched.
+
+Behavior: solo portfolios the user created are deleted and cascade all their
+hanging data; any portfolio they created that is **shared** with other members
+is **transferred** to a surviving member (most-privileged, then oldest) rather
+than deleted, so no one else's data is destroyed. Portfolios they are only a
+member of are kept — just their membership row is removed. The function returns
+a human-readable confirmation including the user id.
 
 ## psql alternative
 
-All scripts work via `psql` too:
-
-```bash
-psql "$(supabase status -o env DB_URL)" -f delete_user.sql
-```
-
-Or once the function is installed:
+Once the function is installed:
 
 ```bash
 psql "$(supabase status -o env DB_URL)" -c "select admin_delete_user('user@example.com');"
