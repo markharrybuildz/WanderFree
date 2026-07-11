@@ -130,16 +130,19 @@ export default function BenefitDetailScreen() {
             truncateValue
           />
           <DetailRow label="Card" value={b.card_name} truncateValue />
-          {b.value_per_period != null && (
+          {/* Prefer the current cycle's allotment so this matches the hero
+              and the list pill (both cycle-aware); fall back to the
+              definition's per-period value. */}
+          {allotted != null && (
             <DetailRow
               label="Per period"
-              value={usd(b.value_per_period) + resetSuffix(b.reset_frequency)}
+              value={usd(allotted) + resetSuffix(b.reset_frequency)}
             />
           )}
           {b.annual_value != null && (
             <DetailRow label="Annual value" value={usd(b.annual_value)} />
           )}
-          {b.value_per_period == null && b.annual_value == null && (
+          {allotted == null && b.annual_value == null && (
             <DetailRow label="Value" value={benefitValueLabel(b) ?? "Perk"} />
           )}
           <DetailRow label="Resets" value={humanize(b.reset_frequency)} last />

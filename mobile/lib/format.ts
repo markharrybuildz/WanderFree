@@ -72,12 +72,17 @@ export function benefitValueLabel(b: UserVisibleBenefit): string | null {
   return named != null ? usd(named) : null;
 }
 
+// Benefit cycle period_start/period_end are Postgres `date` columns ("YYYY-MM-DD"),
+// which parse as UTC midnight. Formatting must pin timeZone to UTC or the calendar
+// date shifts a day back for users in negative-offset zones (e.g. all of the US).
+
 /** Short date, e.g. "Jul 7, 2026". */
 export function fmtDate(s: string): string {
   return new Date(s).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -86,6 +91,7 @@ export function fmtMonthDay(s: string): string {
   return new Date(s).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 

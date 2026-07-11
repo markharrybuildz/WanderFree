@@ -68,6 +68,16 @@ select 'portfolio (shared — will be TRANSFERRED to a surviving member; kept)',
   from created c
  where c.shared
 union all
+-- On each transferred portfolio, the target's own membership row is removed too
+-- (ownership moves to the successor; the target no longer belongs).
+select 'own membership on transferred portfolio (will be removed)',
+       c.id::text,
+       'role=' || pm.role::text || ' on ' || c.name
+  from created c
+  join public.portfolio_members pm
+    on pm.portfolio_id = c.id and pm.profile_id = (select id from target)
+ where c.shared
+union all
 select 'portfolio membership (will be removed; portfolio kept)',
        pm.portfolio_id::text,
        'role=' || pm.role::text

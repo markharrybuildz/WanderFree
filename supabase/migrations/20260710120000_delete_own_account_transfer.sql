@@ -39,7 +39,9 @@ begin
   for p_id in
     select id from public.portfolios where created_by = uid
   loop
-    -- Most-privileged surviving member, oldest by id to break ties.
+    -- Most-privileged surviving member; ties broken by id for a deterministic
+    -- pick (portfolio_members has no join timestamp, so there's no true
+    -- "oldest" — id is a random uuid, used only for stable ordering).
     select pm.profile_id
       into successor
       from public.portfolio_members pm
