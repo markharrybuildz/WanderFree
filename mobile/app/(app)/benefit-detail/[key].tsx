@@ -9,39 +9,23 @@ import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
+import { DetailRow } from "@/components/ui/DetailRow";
 import { Text } from "@/components/ui/Text";
-import { cn } from "@/lib/cn";
 import { notify } from "@/lib/dialog";
+import {
+  benefitValueLabel,
+  fmtDate,
+  humanize,
+  resetSuffix,
+  splitNameValue,
+  usd,
+} from "@/lib/format";
 import {
   useBenefits,
   useCurrentPortfolio,
   useToggleBenefitRedeemed,
 } from "@/lib/hooks";
 import { colors } from "@/lib/theme";
-import { type UserVisibleBenefit } from "@/lib/types";
-
-function usd(n: number): string {
-  return `$${Math.round(n).toLocaleString()}`;
-}
-
-function splitNameValue(b: UserVisibleBenefit): { title: string; value: number | null } {
-  const m = b.name.match(/^\$\s?([\d,]+(?:\.\d+)?)\s+(.+)$/);
-  if (m) return { title: m[2].trim(), value: parseFloat(m[1].replace(/,/g, "")) };
-  return { title: b.name, value: b.annual_value ?? b.value_per_period ?? null };
-}
-
-function fmtDate(s: string): string {
-  return new Date(s).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function humanize(s?: string | null): string {
-  if (!s) return "—";
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export default function BenefitDetailScreen() {
   const { key } = useLocalSearchParams<{ key: string }>();
@@ -79,7 +63,7 @@ export default function BenefitDetailScreen() {
     );
   }
 
-  const { title, value } = splitNameValue(b);
+  const { title } = splitNameValue(b);
   const allotted = b.cycle?.allotted_value ?? b.value_per_period ?? null;
   const redeemed =
     b.fully_redeemed && allotted != null ? allotted : b.redeemed_amount;
@@ -140,57 +124,48 @@ export default function BenefitDetailScreen() {
         )}
 
         <View className="bg-surface rounded-2xl border border-border">
-          <DetailRow label="Category" value={b.benefit_category?.name ?? "—"} />
-          <DetailRow label="Card" value={b.card_name} />
           <DetailRow
-            label="Benefit value"
-            value={value != null ? usd(value) : "Perk"}
+            label="Category"
+            value={b.benefit_category?.name ?? "—"}
+            truncateValue
           />
-          {b.value_per_period != null && (
-            <DetailRow label="Per period" value={usd(b.value_per_period)} />
+          <DetailRow label="Card" value={b.card_name} truncateValue />
+          {/* Prefer the current cycle's allotment so this matches the hero
+              and the list pill (both cycle-aware); fall back to the
+              definition's per-period value. */}
+          {allotted != null && (
+            <DetailRow
+              label="Per period"
+              value={usd(allotted) + resetSuffix(b.reset_frequency)}
+            />
+          )}
+          {b.annual_value != null && (
+            <DetailRow label="Annual value" value={usd(b.annual_value)} />
+          )}
+          {allotted == null && b.annual_value == null && (
+            <DetailRow label="Value" value={benefitValueLabel(b) ?? "Perk"} />
           )}
           <DetailRow label="Resets" value={humanize(b.reset_frequency)} last />
         </View>
 
-        <Button
-          variant={b.fully_redeemed ? "secondary" : "primary"}
-          size="lg"
-          fullWidth
-          label={b.fully_redeemed ? "Mark as available" : "Mark as used"}
-          onPress={() =>
-            toggle.mutate(
-              { benefit: b, redeem: !b.fully_redeemed },
-              { onError: (e) => notify("Update failed", (e as Error).message) },
-            )
-          }
-        />
+        {/* Only capped, cycle-backed benefits can be marked used; perks
+            (no allotted value) would throw in the toggle mutation, so we
+            simply don't offer the action for them. */}
+        {b.cycle != null && b.cycle.allotted_value != null && (
+          <Button
+            variant={b.fully_redeemed ? "secondary" : "primary"}
+            size="lg"
+            fullWidth
+            label={b.fully_redeemed ? "Mark as available" : "Mark as used"}
+            onPress={() =>
+              toggle.mutate(
+                { benefit: b, redeem: !b.fully_redeemed },
+                { onError: (e) => notify("Update failed", (e as Error).message) },
+              )
+            }
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-  last,
-}: {
-  label: string;
-  value: string;
-  last?: boolean;
-}) {
-  return (
-    <View
-      className={cn(
-        "flex-row items-center justify-between px-4 py-3",
-        !last && "border-b border-border",
-      )}
-    >
-      <Text variant="callout" className="text-text-muted">
-        {label}
-      </Text>
-      <Text variant="title" className="shrink pl-3 text-right" numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
   );
 }

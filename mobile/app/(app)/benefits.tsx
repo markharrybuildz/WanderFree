@@ -29,7 +29,7 @@ import {
   Ticket,
   Utensils,
 } from "lucide-react-native";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -43,6 +43,13 @@ import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
 import { notify } from "@/lib/dialog";
+import {
+  benefitValue,
+  benefitValueLabel,
+  fmtMonthDay,
+  splitNameValue,
+  usd,
+} from "@/lib/format";
 import {
   useBenefits,
   useCurrentPortfolio,
@@ -87,33 +94,29 @@ function catStyle(name?: string | null): { Icon: LucideIcon; bg: string; fg: str
   );
 }
 
-// Benefit names in the catalog embed the headline value, e.g.
-// "$120 Peloton Membership Credit". Split that leading amount off so the row
-// title is clean text and the value appears once, in the value pill.
-function splitNameValue(b: UserVisibleBenefit): { title: string; value: number | null } {
-  const m = b.name.match(/^\$\s?([\d,]+(?:\.\d+)?)\s+(.+)$/);
-  if (m) return { title: m[2].trim(), value: parseFloat(m[1].replace(/,/g, "")) };
-  return { title: b.name, value: b.annual_value ?? b.value_per_period ?? null };
-}
-
-/** The benefit's dollar cap for the current cycle, best-available source. */
-function benefitCap(b: UserVisibleBenefit): number | null {
-  return b.cycle?.allotted_value ?? b.value_per_period ?? b.annual_value ?? null;
-}
-
 /** Fractional days until the cycle ends (null when no end date). */
 function daysUntil(end?: string | null): number | null {
   if (!end) return null;
   return (new Date(end).getTime() - Date.now()) / DAY_MS;
 }
 
-function usd(n: number): string {
-  return `$${Math.round(n).toLocaleString()}`;
-}
-
 function daysLeftLabel(d: number): string {
   const n = Math.max(1, Math.ceil(d));
   return `${n} day${n === 1 ? "" : "s"} left`;
+}
+
+/** The per-row expiry tag for an unredeemed benefit: escalates from a muted
+ *  reset date, to an amber countdown within a week, to a muted "Expired" once
+ *  the period has passed. Null for perks (no cycle) and redeemed benefits
+ *  (which already show a check badge). */
+function expiryTag(
+  b: UserVisibleBenefit,
+  d: number | null,
+): { text: string; tone: "amber" | "muted" } | null {
+  if (b.fully_redeemed || d == null) return null;
+  if (d < 0) return { text: "Expired", tone: "muted" };
+  if (d <= 7) return { text: daysLeftLabel(d), tone: "amber" };
+  return { text: `Resets ${fmtMonthDay(b.cycle!.period_end)}`, tone: "muted" };
 }
 
 export default function BenefitsScreen() {
@@ -155,7 +158,7 @@ export default function BenefitsScreen() {
     let got = 0;
     let soon = 0;
     for (const b of benefits ?? []) {
-      const v = benefitCap(b);
+      const v = benefitValue(b);
       if (v == null) continue;
       const g = b.fully_redeemed ? v : Math.min(b.redeemed_amount, v);
       cap += v;
@@ -199,35 +202,58 @@ export default function BenefitsScreen() {
     const week: UserVisibleBenefit[] = [];
     const month: UserVisibleBenefit[] = [];
     const later: UserVisibleBenefit[] = [];
+    const expired: UserVisibleBenefit[] = [];
     const redeemed: UserVisibleBenefit[] = [];
+    // Parse each period_end once, then reuse it in the sort comparator.
+    const days = new Map<UserVisibleBenefit, number>();
     for (const b of filtered) {
+      const d = daysUntil(b.cycle?.period_end);
+      days.set(b, d ?? Infinity);
       if (b.fully_redeemed) {
         redeemed.push(b);
         continue;
       }
-      const d = daysUntil(b.cycle?.period_end);
-      // Negative days = already expired; keep them out of the urgency
-      // buckets (consistent with BenefitRow, which only flags d >= 0).
-      if (d != null && d >= 0 && d <= 7) week.push(b);
-      else if (d != null && d >= 0 && d <= 30) month.push(b);
+      // Past period_end but never redeemed: a missed benefit. Give it its own
+      // terminal bucket instead of floating it to the top of "Later".
+      if (d != null && d < 0) expired.push(b);
+      else if (d != null && d <= 7) week.push(b);
+      else if (d != null && d <= 30) month.push(b);
       else later.push(b);
     }
-    const byExpiry = (a: UserVisibleBenefit, b: UserVisibleBenefit) => {
-      const ad = daysUntil(a.cycle?.period_end) ?? Infinity;
-      const bd = daysUntil(b.cycle?.period_end) ?? Infinity;
-      return ad - bd || a.name.localeCompare(b.name);
-    };
+    const byExpiry = (a: UserVisibleBenefit, b: UserVisibleBenefit) =>
+      (days.get(a) ?? Infinity) - (days.get(b) ?? Infinity) ||
+      a.name.localeCompare(b.name);
     week.sort(byExpiry);
     month.sort(byExpiry);
     later.sort(byExpiry);
+    // Most-recently-expired first (−1 before −30).
+    expired.sort((a, b) => (days.get(b) ?? 0) - (days.get(a) ?? 0));
 
     const out: { title: string; tone?: "amber" | "muted"; data: UserVisibleBenefit[] }[] = [];
     if (week.length) out.push({ title: "Expiring this week", tone: "amber", data: week });
     if (month.length) out.push({ title: "This month", data: month });
     if (later.length) out.push({ title: "Later", data: later });
+    if (expired.length) out.push({ title: "Expired", tone: "muted", data: expired });
     if (redeemed.length) out.push({ title: "Redeemed", tone: "muted", data: redeemed });
     return out;
   }, [filtered]);
+
+  // Stable callbacks so the memoized rows don't re-render on unrelated state.
+  const toggleMutate = toggle.mutate;
+  const handleToggle = useCallback(
+    (b: UserVisibleBenefit) =>
+      toggleMutate(
+        { benefit: b, redeem: !b.fully_redeemed },
+        { onError: (e) => notify("Redemption failed", (e as Error).message) },
+      ),
+    [toggleMutate],
+  );
+  const handleOpen = useCallback((b: UserVisibleBenefit) => {
+    router.push({
+      pathname: "/benefit-detail/[key]" as never,
+      params: { key: `${b.user_card_id}__${b.benefit_definition_id}` },
+    });
+  }, []);
 
   if (portfolioLoading || isLoading) {
     return (
@@ -334,23 +360,7 @@ export default function BenefitsScreen() {
           </View>
         )}
         renderItem={({ item }) => (
-          <BenefitRow
-            b={item}
-            onToggle={() =>
-              toggle.mutate(
-                { benefit: item, redeem: !item.fully_redeemed },
-                { onError: (e) => notify("Redemption failed", (e as Error).message) },
-              )
-            }
-            onOpen={() =>
-              router.push({
-                pathname: "/benefit-detail/[key]" as never,
-                params: {
-                  key: `${item.user_card_id}__${item.benefit_definition_id}`,
-                },
-              })
-            }
-          />
+          <BenefitRow b={item} onToggle={handleToggle} onOpen={handleOpen} />
         )}
         ListEmptyComponent={
           <View className="items-center justify-center py-12">
@@ -537,24 +547,28 @@ function SheetModal({
 
 // ── Row ─────────────────────────────────────────────────────────────────────
 
-function BenefitRow({
+const BenefitRow = memo(function BenefitRow({
   b,
   onToggle,
   onOpen,
 }: {
   b: UserVisibleBenefit;
-  onToggle: () => void;
-  onOpen: () => void;
+  onToggle: (b: UserVisibleBenefit) => void;
+  onOpen: (b: UserVisibleBenefit) => void;
 }) {
   const { Icon, bg, fg } = catStyle(b.benefit_category?.name);
-  const { title, value } = splitNameValue(b);
+  const { title } = splitNameValue(b);
+  const valueLabel = benefitValueLabel(b);
   const d = daysUntil(b.cycle?.period_end);
-  const soon = !b.fully_redeemed && d != null && d >= 0 && d <= 7;
+  const tag = expiryTag(b, d);
+  // Only benefits with a redeemable cycle + cap can be "marked used"; for
+  // perks (no cap) a tap opens the detail screen instead of erroring.
+  const redeemable = b.cycle != null && b.cycle.allotted_value != null;
 
   return (
     <Pressable
-      onPress={onToggle}
-      onLongPress={onOpen}
+      onPress={() => (redeemable ? onToggle(b) : onOpen(b))}
+      onLongPress={() => onOpen(b)}
       delayLongPress={260}
       className={cn(
         "bg-surface rounded-2xl p-3.5 flex-row items-center border border-border",
@@ -581,19 +595,27 @@ function BenefitRow({
         >
           {title}
         </Text>
-        {soon && d != null && (
-          <View className="shrink-0 ml-2 px-2 py-0.5 rounded-full bg-warning-subtle">
-            <Text variant="label" className="text-warning">
-              {daysLeftLabel(d)}
+        {tag && (
+          <View
+            className={cn(
+              "shrink-0 ml-2 px-2 py-0.5 rounded-full",
+              tag.tone === "amber" ? "bg-warning-subtle" : "bg-surface-muted",
+            )}
+          >
+            <Text
+              variant="label"
+              className={tag.tone === "amber" ? "text-warning" : "text-text-muted"}
+            >
+              {tag.text}
             </Text>
           </View>
         )}
       </View>
 
-      {value != null ? (
+      {valueLabel != null ? (
         <View className="shrink-0 px-3 py-1.5 rounded-full bg-primary-subtle">
           <Text variant="callout" className="text-primary-strong">
-            {usd(value)}
+            {valueLabel}
           </Text>
         </View>
       ) : (
@@ -605,4 +627,4 @@ function BenefitRow({
       )}
     </Pressable>
   );
-}
+});

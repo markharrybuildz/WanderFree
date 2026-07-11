@@ -10,9 +10,14 @@
 
 -- admin_delete_user(target_email)
 --
--- Hard-deletes a Supabase Auth user and every WanderFree row keyed off
--- them. See delete_user.sql for the cascade chain and caveats — this
--- function is the same operation, just packaged for repeated calls.
+-- Deletes a Supabase Auth user and every WanderFree row keyed off them, by
+-- delegating to public.purge_user() — the one canonical implementation (see
+-- migration 20260710130000_purge_user_helper.sql). Any portfolio the target
+-- created that is shared with other members is TRANSFERRED to a surviving
+-- member rather than deleted, so no one else's data is destroyed. Solo
+-- portfolios are deleted and cascade all their hanging data.
+--
+-- Requires purge_user() to exist in the DB (it ships in the migration above).
 --
 -- Usage:
 --   select admin_delete_user('user@example.com');
@@ -24,38 +29,17 @@ set search_path = public, auth, pg_temp
 as $$
 declare
   target_user_id uuid;
-  portfolio_count int := 0;
 begin
   select id into target_user_id from auth.users where email = target_email;
   if target_user_id is null then
     return format('No auth user found with email %L — nothing deleted.', target_email);
   end if;
 
-  -- Guard: refuse if the target still owns portfolios shared with other
-  -- members — deleting them would cascade-delete those members' data.
-  if exists (
-    select 1
-      from public.portfolios p
-      join public.portfolio_members pm on pm.portfolio_id = p.id
-     where p.created_by = target_user_id
-       and pm.profile_id <> target_user_id
-  ) then
-    return format(
-      'Refusing to delete %s: they still own portfolios shared with other members. Reassign ownership or remove those members first.',
-      target_email
-    );
-  end if;
-
-  with deleted as (
-    delete from public.portfolios where created_by = target_user_id returning 1
-  )
-  select count(*)::int into portfolio_count from deleted;
-
-  delete from auth.users where id = target_user_id;
+  perform public.purge_user(target_user_id);
 
   return format(
-    'Deleted user %s (id=%s) and %s portfolios they created (cascade removed all hanging data).',
-    target_email, target_user_id, portfolio_count
+    'Deleted user %s (id=%s). Solo portfolios cascade-deleted; any shared ones were transferred to a surviving member.',
+    target_email, target_user_id
   );
 end;
 $$;

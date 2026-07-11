@@ -32,15 +32,16 @@ export function useAuthSession(): AuthState {
     });
 
     // 2. Subscribe to future changes — sign in / sign out / token refresh.
-    //    On every change, drop user-scoped query caches so the next read
-    //    hits the DB with the new identity. Catalog queries (cards, etc.)
-    //    stay cached.
+    //    On identity changes, clear the ENTIRE query cache so no data from
+    //    the previous user can leak on a shared device. User-scoped keys are
+    //    varied (["user_portfolios"], ["portfolio", id, ...], ["card", id]),
+    //    so a targeted removeQueries misses some; clear() is the safe reset.
+    //    The catalog re-fetches on next read (cheap, and not user-private).
     const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
       setSession(newSession);
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        queryClient.removeQueries({ queryKey: ["current_portfolio"] });
-        queryClient.removeQueries({ queryKey: ["portfolio"] });
+        queryClient.clear();
       }
     });
 
