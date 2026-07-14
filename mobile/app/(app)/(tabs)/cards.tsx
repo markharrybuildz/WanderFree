@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { Text } from "@/components/ui/Text";
 import { confirmDestructive, notify } from "@/lib/dialog";
+import { localIsoDay } from "@/lib/format";
 import {
   useAddUserCard,
   useCardProducts,
@@ -43,7 +44,7 @@ import { colors, fonts } from "@/lib/theme";
 import type { CardProduct } from "@/lib/types";
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localIsoDay();
 }
 
 function formatOpenedOn(iso: string | null): string {

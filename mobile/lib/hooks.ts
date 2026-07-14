@@ -946,9 +946,15 @@ export function useUpdateSignupBonus() {
 }
 
 /** Record a manual spend entry against a card. When the entry is linked to a
- *  signup bonus and pushes the running spend total past required_spend, the
- *  bonus is flipped to completed in the same mutation (no DB trigger exists
- *  for this today). */
+ *  signup bonus, completion is re-derived from a fresh server-side sum (not
+ *  client state, which can be stale across devices) and flipped if the
+ *  threshold is crossed.
+ *
+ *  The insert and the completion flag are still two statements, not one
+ *  transaction — a flag failure is deliberately NON-fatal, because rejecting
+ *  after the insert committed prompts a retry that duplicates the spend row.
+ *  The flag self-heals on the next spend add or bonus edit. TODO: fold both
+ *  into one Postgres function in the next schema deploy. */
 export function useAddSpendEntry() {
   const qc = useQueryClient();
   return useMutation({
@@ -956,9 +962,8 @@ export function useAddSpendEntry() {
       userCardId: string;
       amount: number;
       spentOn: string;
-      /** The open bonus to credit this spend toward, with its progress so
-       *  far, so completion can be derived without a second round-trip. */
-      bonus?: { id: string; requiredSpend: number; priorSpend: number } | null;
+      /** The open bonus to credit this spend toward. */
+      bonus?: { id: string; requiredSpend: number } | null;
     }) => {
       const { userCardId, amount, spentOn, bonus } = args;
       const { error } = await supabase.from("spend_entries").insert({
@@ -969,12 +974,21 @@ export function useAddSpendEntry() {
       });
       if (error) throw error;
 
-      if (bonus && bonus.priorSpend + amount >= bonus.requiredSpend) {
-        const { error: uErr } = await supabase
-          .from("user_signup_bonuses")
-          .update({ is_completed: true })
-          .eq("id", bonus.id);
-        if (uErr) throw uErr;
+      if (bonus) {
+        const { data: rows, error: sumErr } = await supabase
+          .from("spend_entries")
+          .select("amount")
+          .eq("signup_bonus_id", bonus.id);
+        if (!sumErr && rows) {
+          const total = rows.reduce((sum, r) => sum + Number(r.amount), 0);
+          if (total >= bonus.requiredSpend) {
+            const { error: uErr } = await supabase
+              .from("user_signup_bonuses")
+              .update({ is_completed: true })
+              .eq("id", bonus.id);
+            if (uErr) console.warn("Bonus completion flag update failed:", uErr.message);
+          }
+        }
       }
     },
     onSuccess: (_data, vars) => {

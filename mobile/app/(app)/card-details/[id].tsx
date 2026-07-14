@@ -22,7 +22,7 @@ import { DetailRow } from "@/components/ui/DetailRow";
 import { Text } from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
 import { confirmDestructive, notify } from "@/lib/dialog";
-import { fmtDate, usd } from "@/lib/format";
+import { fmtDate, localIsoDay, usd } from "@/lib/format";
 import {
   useAddSignupBonus,
   useAddSpendEntry,
@@ -205,10 +205,12 @@ export default function CardDetailsScreen() {
   };
 
   const product = c.card_product;
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const yesterdayIso = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  // Local calendar days — toISOString() would shift the day in US timezones,
+  // and fixed-ms subtraction breaks across DST; step by date parts instead.
+  const todayIso = localIsoDay();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayIso = localIsoDay(yesterday);
   const annualFee = product?.annual_fee != null ? `$${Number(product.annual_fee).toFixed(0)}/yr` : null;
 
   // The card's signup bonus. The schema allows several rows per card, but
@@ -314,11 +316,7 @@ export default function CardDetailsScreen() {
         // Credit toward the open bonus so progress (and completion) update.
         bonus:
           bonus && !bonus.is_completed
-            ? {
-                id: bonus.id,
-                requiredSpend: Number(bonus.required_spend),
-                priorSpend: bonusSpent,
-              }
+            ? { id: bonus.id, requiredSpend: Number(bonus.required_spend) }
             : null,
       },
       {

@@ -72,6 +72,15 @@ export function benefitValueLabel(b: UserVisibleBenefit): string | null {
   return named != null ? usd(named) : null;
 }
 
+/** Local-calendar "YYYY-MM-DD" for `d` (defaults to now). Never go through
+ *  toISOString() for this — it converts to UTC first, which shifts the
+ *  calendar day for negative-offset timezones (all of the US) in the
+ *  evening. */
+export function localIsoDay(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // Benefit cycle period_start/period_end are Postgres `date` columns ("YYYY-MM-DD"),
 // which parse as UTC midnight. Formatting must pin timeZone to UTC or the calendar
 // date shifts a day back for users in negative-offset zones (e.g. all of the US).

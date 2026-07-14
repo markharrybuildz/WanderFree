@@ -280,7 +280,10 @@ export default function HomeScreen() {
               onPress={() => {
                 setProfilesOpen(false);
                 setNewName("");
-                setCreating(true);
+                // iOS can't present a modal while another is mid-dismissal —
+                // opening in the same tick silently fails. Wait out the
+                // sheet's closing animation first.
+                setTimeout(() => setCreating(true), 350);
               }}
               className="flex-row items-center gap-2 py-3.5"
             >
@@ -339,7 +342,12 @@ export default function HomeScreen() {
 // ── Signup-bonus progress row ───────────────────────────────────────────────
 
 function BonusRow({ sb }: { sb: SignupBonusProgress }) {
-  const pct = Math.min(100, Math.round((sb.spent / sb.requiredSpend) * 100));
+  // Guard requiredSpend <= 0 (possible via direct DB edits) — NaN% width
+  // crashes the progress bar layout.
+  const pct =
+    sb.requiredSpend > 0
+      ? Math.min(100, Math.round((sb.spent / sb.requiredSpend) * 100))
+      : 100;
   const toGo = Math.max(0, sb.requiredSpend - sb.spent);
   // Flag deadlines within two weeks — bonus windows are typically 3 months,
   // so this is the "get moving" zone.

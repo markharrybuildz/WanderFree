@@ -98,7 +98,9 @@ select bd.id                              as benefit_definition_id,
        coalesce(r.redeemed_value, 0)      as redeemed_value,
        coalesce(r.redemption_count, 0)    as redemption_count,
        case when coalesce(a.allotted_value, 0) > 0
-            then round(coalesce(r.redeemed_value, 0) / a.allotted_value, 4)
+            -- ::numeric guards against integer division if the amount
+            -- columns ever migrate to integer cents.
+            then round(coalesce(r.redeemed_value, 0)::numeric / a.allotted_value, 4)
             else null end                 as redemption_rate
 from public.benefit_definitions bd
 join public.card_products cp        on cp.id = bd.card_product_id

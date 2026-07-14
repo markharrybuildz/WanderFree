@@ -18,7 +18,7 @@ import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
 import { CalendarDays, X } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Platform, Pressable, TextInput, View } from "react-native";
 
 import { cn } from "@/lib/cn";
@@ -73,8 +73,13 @@ export function DateField({
   const [iosOpen, setIosOpen] = useState(false);
   // iOS commits on Done; hold the in-progress selection here meanwhile.
   const [iosDraft, setIosDraft] = useState<Date>(() => fromIsoDay(value));
-  // Web fallback keeps its own text so partial input doesn't reach onChange.
+  // Web fallback keeps its own text so partial input doesn't reach onChange —
+  // but must re-sync when the parent changes `value` externally (modals stay
+  // mounted, so the same instance is reused across add/edit invocations).
   const [webText, setWebText] = useState(value ?? "");
+  useEffect(() => {
+    setWebText(value ?? "");
+  }, [value]);
 
   if (Platform.OS === "web") {
     return (
@@ -90,9 +95,17 @@ export function DateField({
         onChangeText={(t) => {
           setWebText(t);
           const trimmed = t.trim();
-          if (!trimmed) onChange(null);
-          else if (ISO_DATE_RE.test(trimmed) && !Number.isNaN(new Date(trimmed).getTime()))
-            onChange(trimmed);
+          if (!trimmed) {
+            onChange(null);
+            return;
+          }
+          if (!ISO_DATE_RE.test(trimmed) || Number.isNaN(new Date(trimmed).getTime()))
+            return;
+          // Enforce the same bounds the native pickers apply.
+          const parsed = fromIsoDay(trimmed);
+          if (maximumDate && parsed > maximumDate) return;
+          if (minimumDate && parsed < minimumDate) return;
+          onChange(trimmed);
         }}
         autoCapitalize="none"
         autoCorrect={false}
