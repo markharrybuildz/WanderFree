@@ -49,7 +49,7 @@ export default function SignInScreen() {
     // Cards tab so the welcome popup can guide them.
     const userId = data.session?.user.id ?? data.user?.id ?? null;
     const onboarded = userId ? await isOnboarded(userId) : true;
-    router.replace(onboarded ? "/(app)/benefits" : "/(app)/cards");
+    router.replace((onboarded ? "/home" : "/cards") as never);
   }
 
   return (

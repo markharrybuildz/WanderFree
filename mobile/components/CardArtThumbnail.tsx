@@ -1,25 +1,26 @@
-// Procedural credit-card art — no image assets.
+// Realistic credit-card art — bundled brushed-metal face textures
+// (generated once, no per-card assets) with the chip and network dots
+// overlaid in code so corners and proportions stay crisp at any size.
 //
-// A deterministic gradient + chip is derived from a seed string (issuer or
-// product name), so every card gets stable, distinct art with zero asset
-// management. Swap to real raster art later by rendering an <Image> here
-// behind the same props.
+// A deterministic texture is derived from a seed string (issuer or product
+// id), so every card gets stable, distinct art with a fixed set of nine
+// bundled images. Swap in real per-product raster art later by mapping
+// product ids to sources ahead of the seed fallback.
 
-import { LinearGradient } from "expo-linear-gradient";
-import { View } from "react-native";
+import { Image, type ImageSourcePropType, View } from "react-native";
 
-// Curated gradient pairs — picked over random hues so colors always read as
-// "premium card", never muddy. Index chosen by a stable hash of the seed.
-const GRADIENTS: [string, string][] = [
-  ["#0EA5E9", "#0369A1"], // sky
-  ["#6366F1", "#4338CA"], // indigo
-  ["#14B8A6", "#0F766E"], // teal
-  ["#F59E0B", "#B45309"], // amber
-  ["#EC4899", "#9D174D"], // rose
-  ["#10B981", "#047857"], // emerald
-  ["#8B5CF6", "#6D28D9"], // violet
-  ["#334155", "#0F172A"], // graphite
-  ["#EA580C", "#9A3412"], // orange
+// Bundled face textures — order matters only for hash stability; keep
+// appends at the end so existing cards don't change color.
+const TEXTURES: ImageSourcePropType[] = [
+  require("../assets/card-art/sky.jpg"),
+  require("../assets/card-art/indigo.jpg"),
+  require("../assets/card-art/teal.jpg"),
+  require("../assets/card-art/gold.jpg"),
+  require("../assets/card-art/rose.jpg"),
+  require("../assets/card-art/emerald.jpg"),
+  require("../assets/card-art/violet.jpg"),
+  require("../assets/card-art/graphite.jpg"),
+  require("../assets/card-art/copper.jpg"),
 ];
 
 function hashSeed(seed: string): number {
@@ -32,7 +33,7 @@ function hashSeed(seed: string): number {
 }
 
 export type CardArtThumbnailProps = {
-  /** Stable string (issuer name or product id) that picks the gradient. */
+  /** Stable string (issuer name or product id) that picks the texture. */
   seed: string;
   /** Width in px; height follows the 1.585 credit-card aspect ratio. */
   width?: number;
@@ -40,26 +41,23 @@ export type CardArtThumbnailProps = {
 
 export function CardArtThumbnail({ seed, width = 46 }: CardArtThumbnailProps) {
   const height = Math.round(width / 1.585);
-  const [from, to] = GRADIENTS[hashSeed(seed) % GRADIENTS.length];
+  const texture = TEXTURES[hashSeed(seed) % TEXTURES.length];
 
   return (
-    <LinearGradient
-      colors={[from, to]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={{ width, height, borderRadius: 7, padding: 5, overflow: "hidden" }}
+    <View
+      style={{
+        width,
+        height,
+        borderRadius: 7,
+        padding: 5,
+        overflow: "hidden",
+        backgroundColor: "#0F172A", // paints behind the texture while it decodes
+      }}
     >
-      {/* Diagonal sheen */}
-      <View
-        style={{
-          position: "absolute",
-          top: -height,
-          left: width * 0.35,
-          width: width * 0.5,
-          height: height * 3,
-          backgroundColor: "rgba(255,255,255,0.14)",
-          transform: [{ rotate: "25deg" }],
-        }}
+      <Image
+        source={texture}
+        resizeMode="cover"
+        style={{ position: "absolute", top: 0, left: 0, width, height }}
       />
       {/* EMV chip */}
       <View
@@ -97,6 +95,6 @@ export function CardArtThumbnail({ seed, width = 46 }: CardArtThumbnailProps) {
           }}
         />
       </View>
-    </LinearGradient>
+    </View>
   );
 }

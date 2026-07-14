@@ -2,121 +2,58 @@
 //
 // Layout (top → bottom):
 //   1. Value hero — $ left to redeem, total tracked, $ expiring soon, progress.
-//   2. Filter bar — segmented expiry horizon + Category / Card sheet pickers.
+//   2. Search (header) + filter bar — Category and Availability sheet
+//      pickers.
 //   3. Urgency-grouped list (SectionList): Expiring this week / This month /
 //      Later / Redeemed. Each row: a colored category icon, the benefit name
 //      (leading "$" split into a value pill), and an amber "N days left" tag
-//      when expiring soon. Tap a row to mark it used; long-press opens the
-//      benefit detail screen.
+//      when expiring soon. Tap a row to open the benefit detail screen,
+//      where redemption is marked — no one-tap completion from the list.
 //
 // Dollar math uses each benefit's cap (cycle.allotted_value, falling back to
 // value_per_period / annual_value) and its redeemed_amount. Benefits with no
 // dollar cap are still listed but don't contribute to the $ totals.
 
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import {
-  Car,
-  Check,
-  ChevronDown,
-  Fuel,
-  HeartPulse,
-  type LucideIcon,
-  Plane,
-  ShoppingBag,
-  ShoppingCart,
-  Sparkles,
-  Ticket,
-  Utensils,
-} from "lucide-react-native";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { Check, ChevronDown, Search, X } from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
   Pressable,
   SectionList,
+  TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BenefitRow, daysUntil } from "@/components/BenefitRow";
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
-import { notify } from "@/lib/dialog";
-import {
-  benefitValue,
-  benefitValueLabel,
-  fmtMonthDay,
-  splitNameValue,
-  usd,
-} from "@/lib/format";
+import { benefitValue, splitNameValue, usd } from "@/lib/format";
 import {
   useBenefits,
   useCurrentPortfolio,
   useEnsureCycles,
-  useToggleBenefitRedeemed,
 } from "@/lib/hooks";
-import { colors } from "@/lib/theme";
+import { colors, fonts } from "@/lib/theme";
 import { type UserVisibleBenefit } from "@/lib/types";
 
-type ExpiryFilter = "all" | "week" | "month" | "quarter";
+type AvailabilityFilter = "available" | "redeemed";
 
-const EXPIRY_LABELS: Record<ExpiryFilter, string> = {
-  all: "All",
-  week: "Week",
-  month: "Month",
-  quarter: "Quarter",
-};
-
-const DAY_MS = 1000 * 60 * 60 * 24;
-
-// Category → colored icon. Matched by keyword so both enum-style keys
-// ("wholesale_club") and display names ("Groceries") resolve.
-const CAT_STYLES: { test: RegExp; Icon: LucideIcon; bg: string; fg: string }[] = [
-  { test: /dining|restaurant|food/, Icon: Utensils, bg: "bg-amber-100", fg: "#B45309" },
-  { test: /travel|flight|air|hotel|lodging/, Icon: Plane, bg: "bg-sky-100", fg: "#0284C7" },
-  { test: /grocer|wholesale|market/, Icon: ShoppingCart, bg: "bg-green-100", fg: "#16A34A" },
-  { test: /gas|fuel|\bev\b|charg/, Icon: Fuel, bg: "bg-orange-100", fg: "#EA580C" },
-  { test: /entertain|stream|ticket/, Icon: Ticket, bg: "bg-purple-100", fg: "#9333EA" },
-  { test: /retail|shop|store/, Icon: ShoppingBag, bg: "bg-rose-100", fg: "#E11D48" },
-  { test: /transport|transit|ride|car/, Icon: Car, bg: "bg-indigo-100", fg: "#4F46E5" },
-  { test: /wellness|health|fitness|gym/, Icon: HeartPulse, bg: "bg-teal-100", fg: "#0D9488" },
-];
-
-function catStyle(name?: string | null): { Icon: LucideIcon; bg: string; fg: string } {
-  const n = (name ?? "").toLowerCase();
-  return (
-    CAT_STYLES.find((c) => c.test.test(n)) ?? {
-      Icon: Sparkles,
-      bg: "bg-sky-100",
-      fg: "#0284C7",
-    }
-  );
-}
-
-/** Fractional days until the cycle ends (null when no end date). */
-function daysUntil(end?: string | null): number | null {
-  if (!end) return null;
-  return (new Date(end).getTime() - Date.now()) / DAY_MS;
-}
-
-function daysLeftLabel(d: number): string {
-  const n = Math.max(1, Math.ceil(d));
-  return `${n} day${n === 1 ? "" : "s"} left`;
-}
-
-/** The per-row expiry tag for an unredeemed benefit: escalates from a muted
- *  reset date, to an amber countdown within a week, to a muted "Expired" once
- *  the period has passed. Null for perks (no cycle) and redeemed benefits
- *  (which already show a check badge). */
-function expiryTag(
+/** "Available" = still actionable this cycle: not redeemed and the period
+ *  hasn't ended. "Redeemed" = fully redeemed. Expired-but-unredeemed
+ *  benefits are neither, so they only appear under "All". */
+function matchesAvailability(
   b: UserVisibleBenefit,
-  d: number | null,
-): { text: string; tone: "amber" | "muted" } | null {
-  if (b.fully_redeemed || d == null) return null;
-  if (d < 0) return { text: "Expired", tone: "muted" };
-  if (d <= 7) return { text: daysLeftLabel(d), tone: "amber" };
-  return { text: `Resets ${fmtMonthDay(b.cycle!.period_end)}`, tone: "muted" };
+  filter: AvailabilityFilter,
+): boolean {
+  if (filter === "redeemed") return b.fully_redeemed;
+  const d = daysUntil(b.cycle?.period_end);
+  return !b.fully_redeemed && (d == null || d >= 0);
 }
 
 export default function BenefitsScreen() {
@@ -124,17 +61,26 @@ export default function BenefitsScreen() {
   const portfolioId = portfolio?.id;
 
   const { data: benefits, isLoading, error, refetch, isFetching } = useBenefits(portfolioId);
-  const toggle = useToggleBenefitRedeemed(portfolioId);
   const ensure = useEnsureCycles(portfolioId);
 
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
-  const [cardFilter, setCardFilter] = useState<string | null>(null);
-  const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>("all");
+  const [availabilityFilter, setAvailabilityFilter] =
+    useState<AvailabilityFilter | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   useEffect(() => {
     if (portfolioId) ensure.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [portfolioId]);
+
+  // Tab screens stay mounted, so an open keyboard would otherwise survive a
+  // tab switch and greet the user on their way back in.
+  useFocusEffect(
+    useCallback(() => {
+      return () => Keyboard.dismiss();
+    }, []),
+  );
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -142,14 +88,6 @@ export default function BenefitsScreen() {
       if (b.benefit_category?.name) set.add(b.benefit_category.name);
     }
     return Array.from(set).sort();
-  }, [benefits]);
-
-  const cards = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const b of benefits ?? []) map.set(b.user_card_id, b.card_name);
-    return Array.from(map.entries())
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
   }, [benefits]);
 
   // Portfolio-wide $ summary (independent of the active filters).
@@ -179,23 +117,22 @@ export default function BenefitsScreen() {
 
   const filtered = useMemo(() => {
     const list = benefits ?? [];
-    const horizons: Record<ExpiryFilter, number> = {
-      all: Infinity,
-      week: 7,
-      month: 30,
-      quarter: 90,
-    };
-    const horizon = horizons[expiryFilter];
+    // Word-wise search: every term must appear in the benefit name, card
+    // name, or category.
+    const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
     return list.filter((b) => {
       if (categoryFilter && b.benefit_category?.name !== categoryFilter) return false;
-      if (cardFilter && b.user_card_id !== cardFilter) return false;
-      if (expiryFilter !== "all") {
-        const d = daysUntil(b.cycle?.period_end);
-        if (d == null || d < 0 || d > horizon) return false;
+      if (availabilityFilter && !matchesAvailability(b, availabilityFilter)) {
+        return false;
+      }
+      if (terms.length > 0) {
+        const haystack =
+          `${splitNameValue(b).title} ${b.name} ${b.card_name} ${b.benefit_category?.name ?? ""}`.toLowerCase();
+        if (!terms.every((t) => haystack.includes(t))) return false;
       }
       return true;
     });
-  }, [benefits, categoryFilter, cardFilter, expiryFilter]);
+  }, [benefits, categoryFilter, availabilityFilter, search]);
 
   // Group into urgency buckets. Within a bucket, sort by soonest expiry.
   const sections = useMemo(() => {
@@ -238,16 +175,7 @@ export default function BenefitsScreen() {
     return out;
   }, [filtered]);
 
-  // Stable callbacks so the memoized rows don't re-render on unrelated state.
-  const toggleMutate = toggle.mutate;
-  const handleToggle = useCallback(
-    (b: UserVisibleBenefit) =>
-      toggleMutate(
-        { benefit: b, redeem: !b.fully_redeemed },
-        { onError: (e) => notify("Redemption failed", (e as Error).message) },
-      ),
-    [toggleMutate],
-  );
+  // Stable callback so the memoized rows don't re-render on unrelated state.
   const handleOpen = useCallback((b: UserVisibleBenefit) => {
     router.push({
       pathname: "/benefit-detail/[key]" as never,
@@ -273,8 +201,8 @@ export default function BenefitsScreen() {
         </View>
         <View className="flex-1 items-center justify-center px-6">
           <Text variant="body" className="text-text-muted text-center">
-            You&apos;re not a member of any portfolio yet.{"\n"}
-            Create one in Supabase to get started.
+            You&apos;re not a member of any profile yet.{"\n"}
+            Create one to get started.
           </Text>
         </View>
       </SafeAreaView>
@@ -296,14 +224,57 @@ export default function BenefitsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
-      <View className="bg-surface border-b border-border px-4 py-4">
+      <View className="bg-surface border-b border-border px-4 pt-4 pb-3">
         <Text variant="display">Benefits</Text>
         <Text variant="caption" className="text-text-muted mt-1">
           {isFetching ? "Refreshing..." : "Track your rewards"}
         </Text>
+        <View className="flex-row items-center mt-3 gap-2">
+          <View className="flex-1 flex-row items-center bg-surface-muted rounded-xl px-3">
+            <Search size={16} color={colors.textMuted} />
+            <TextInput
+              className="flex-1 px-2 py-2.5 text-text"
+              style={{ fontFamily: fonts.regular, fontSize: 15 }}
+              placeholder="Search benefits, cards, categories"
+              placeholderTextColor={colors.textSubtle}
+              value={search}
+              onChangeText={setSearch}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              accessibilityLabel="Search benefits"
+            />
+            {search.length > 0 && (
+              <Pressable
+                onPress={() => setSearch("")}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <X size={16} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
+          {searchFocused && (
+            <Pressable
+              onPress={() => Keyboard.dismiss()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss keyboard"
+            >
+              <Text variant="callout" className="text-primary-strong">
+                Done
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <SectionList
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         sections={sections}
         keyExtractor={(b) => `${b.user_card_id}:${b.benefit_definition_id}`}
         contentContainerStyle={{ padding: 16, gap: 10 }}
@@ -311,35 +282,26 @@ export default function BenefitsScreen() {
         ListHeaderComponent={
           <View className="gap-3 mb-1">
             <Hero left={hero.left} cap={hero.cap} soon={hero.soon} pct={hero.pct} />
-            <View className="gap-2">
-              <Segmented
-                value={expiryFilter}
-                onChange={setExpiryFilter}
-                options={(Object.keys(EXPIRY_LABELS) as ExpiryFilter[]).map((k) => ({
-                  key: k,
-                  label: EXPIRY_LABELS[k],
-                }))}
+            <View className="flex-row gap-2">
+              <Dropdown
+                label="Category"
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+                options={[
+                  { key: null, label: "All" },
+                  ...categories.map((c) => ({ key: c, label: c })),
+                ]}
               />
-              <View className="flex-row gap-2">
-                <Dropdown
-                  label="Category"
-                  value={categoryFilter}
-                  onChange={setCategoryFilter}
-                  options={[
-                    { key: null, label: "All" },
-                    ...categories.map((c) => ({ key: c, label: c })),
-                  ]}
-                />
-                <Dropdown
-                  label="Card"
-                  value={cardFilter}
-                  onChange={setCardFilter}
-                  options={[
-                    { key: null, label: "All" },
-                    ...cards.map((c) => ({ key: c.id, label: c.name })),
-                  ]}
-                />
-              </View>
+              <Dropdown
+                label="Show"
+                value={availabilityFilter}
+                onChange={setAvailabilityFilter}
+                options={[
+                  { key: null, label: "All" },
+                  { key: "available", label: "Available" },
+                  { key: "redeemed", label: "Redeemed" },
+                ]}
+              />
             </View>
           </View>
         }
@@ -359,13 +321,11 @@ export default function BenefitsScreen() {
             </Text>
           </View>
         )}
-        renderItem={({ item }) => (
-          <BenefitRow b={item} onToggle={handleToggle} onOpen={handleOpen} />
-        )}
+        renderItem={({ item }) => <BenefitRow b={item} onOpen={handleOpen} />}
         ListEmptyComponent={
           <View className="items-center justify-center py-12">
             <Text variant="body" className="text-text-muted text-center">
-              {categoryFilter || cardFilter || expiryFilter !== "all"
+              {categoryFilter || availabilityFilter || search.trim()
                 ? "No benefits match the current filters."
                 : "No benefits to show yet.\nAdd a card on the Cards tab to get started."}
             </Text>
@@ -431,41 +391,6 @@ function Hero({
 
 // ── Filters ─────────────────────────────────────────────────────────────────
 
-function Segmented<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { key: T; label: string }[];
-}) {
-  return (
-    <View className="flex-row bg-surface-muted rounded-full p-1">
-      {options.map((o) => {
-        const active = o.key === value;
-        return (
-          <Pressable
-            key={o.key}
-            onPress={() => onChange(o.key)}
-            className={cn(
-              "flex-1 items-center py-1.5 rounded-full",
-              active && "bg-primary-strong",
-            )}
-          >
-            <Text
-              variant="callout"
-              className={active ? "text-white" : "text-text-muted"}
-            >
-              {o.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 function Dropdown<T extends string | null>({
   label,
   value,
@@ -530,11 +455,15 @@ function SheetModal({
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  // Android 15 draws edge-to-edge, so the sheet needs the real bottom inset
+  // rather than fixed padding.
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable className="flex-1 bg-overlay/40 justify-end" onPress={onClose}>
         <Pressable
-          className="bg-surface rounded-t-3xl px-5 pt-5 pb-10"
+          className="bg-surface rounded-t-3xl px-5 pt-5"
+          style={{ paddingBottom: Math.max(insets.bottom, 24) + 16 }}
           onPress={(e) => e.stopPropagation()}
         >
           <Text variant="h2" className="mb-2">{title}</Text>
@@ -545,86 +474,3 @@ function SheetModal({
   );
 }
 
-// ── Row ─────────────────────────────────────────────────────────────────────
-
-const BenefitRow = memo(function BenefitRow({
-  b,
-  onToggle,
-  onOpen,
-}: {
-  b: UserVisibleBenefit;
-  onToggle: (b: UserVisibleBenefit) => void;
-  onOpen: (b: UserVisibleBenefit) => void;
-}) {
-  const { Icon, bg, fg } = catStyle(b.benefit_category?.name);
-  const { title } = splitNameValue(b);
-  const valueLabel = benefitValueLabel(b);
-  const d = daysUntil(b.cycle?.period_end);
-  const tag = expiryTag(b, d);
-  // Only benefits with a redeemable cycle + cap can be "marked used"; for
-  // perks (no cap) a tap opens the detail screen instead of erroring.
-  const redeemable = b.cycle != null && b.cycle.allotted_value != null;
-
-  return (
-    <Pressable
-      onPress={() => (redeemable ? onToggle(b) : onOpen(b))}
-      onLongPress={() => onOpen(b)}
-      delayLongPress={260}
-      className={cn(
-        "bg-surface rounded-2xl p-3.5 flex-row items-center border border-border",
-        b.fully_redeemed && "opacity-60",
-      )}
-    >
-      {/* Colored category icon; a green check badge appears once redeemed. */}
-      <View>
-        <View className={cn("p-2.5 rounded-xl", bg)}>
-          <Icon size={20} color={fg} />
-        </View>
-        {b.fully_redeemed && (
-          <View className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success items-center justify-center border border-surface">
-            <Check size={10} color="white" />
-          </View>
-        )}
-      </View>
-
-      <View className="flex-1 ml-3 mr-2 flex-row items-center">
-        <Text
-          variant="title"
-          numberOfLines={2}
-          className={cn("shrink", b.fully_redeemed ? "text-text-muted" : "text-text")}
-        >
-          {title}
-        </Text>
-        {tag && (
-          <View
-            className={cn(
-              "shrink-0 ml-2 px-2 py-0.5 rounded-full",
-              tag.tone === "amber" ? "bg-warning-subtle" : "bg-surface-muted",
-            )}
-          >
-            <Text
-              variant="label"
-              className={tag.tone === "amber" ? "text-warning" : "text-text-muted"}
-            >
-              {tag.text}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {valueLabel != null ? (
-        <View className="shrink-0 px-3 py-1.5 rounded-full bg-primary-subtle">
-          <Text variant="callout" className="text-primary-strong">
-            {valueLabel}
-          </Text>
-        </View>
-      ) : (
-        <View className="shrink-0 px-3 py-1.5 rounded-full bg-surface-muted">
-          <Text variant="callout" className="text-text-muted">
-            Perk
-          </Text>
-        </View>
-      )}
-    </Pressable>
-  );
-});

@@ -1,7 +1,8 @@
 // Button primitive with explicit, visually-distinct states.
 //
 // Variants:  primary (orange action) · secondary (sky tonal) ·
-//            destructive (error, subtle) · ghost (transparent)
+//            destructive (error, subtle) · danger (error, solid) ·
+//            ghost (transparent)
 // States:    default · pressed (darker + 0.97 scale) · disabled (muted, no
 //            press) · loading (spinner, interaction locked, width preserved) ·
 //            focus (visible ring on web/keyboard)
@@ -22,7 +23,7 @@ import { colors } from "@/lib/theme";
 
 import { Text } from "./Text";
 
-type Variant = "primary" | "secondary" | "destructive" | "ghost";
+type Variant = "primary" | "secondary" | "destructive" | "danger" | "ghost";
 type Size = "sm" | "md" | "lg";
 
 export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
@@ -41,6 +42,7 @@ const VARIANT_BG: Record<Variant, string> = {
   primary: "bg-accent active:bg-accent-press",
   secondary: "bg-primary-subtle active:bg-primary/20",
   destructive: "bg-error-subtle border border-error-border active:bg-error/10",
+  danger: "bg-error active:bg-error-text",
   ghost: "bg-transparent active:bg-surface-muted",
 };
 
@@ -48,6 +50,7 @@ const VARIANT_TEXT: Record<Variant, string> = {
   primary: "text-white",
   secondary: "text-primary-strong",
   destructive: "text-error-text",
+  danger: "text-white",
   ghost: "text-text",
 };
 
@@ -56,6 +59,7 @@ export const iconColor: Record<Variant, string> = {
   primary: "#FFFFFF",
   secondary: colors.primaryStrong,
   destructive: colors.errorText,
+  danger: "#FFFFFF",
   ghost: colors.text,
 };
 
@@ -102,8 +106,11 @@ export function Button({
         SIZE_BOX[size],
         isDisabled ? "bg-surface-muted border-0" : VARIANT_BG[variant],
         fullWidth && "w-full",
-        // Web/keyboard focus ring (no-op on native).
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        // Web/keyboard focus ring. Must NOT be applied on native: ring
+        // utilities compile to a box shadow there and render as smudges on
+        // each rounded corner.
+        Platform.OS === "web" &&
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         className,
       )}
       {...rest}

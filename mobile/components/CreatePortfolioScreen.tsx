@@ -22,7 +22,7 @@ export function CreatePortfolioScreen() {
     if (!canSubmit) return;
     create.mutate(name.trim(), {
       onError: (e) =>
-        Alert.alert("Could not create portfolio", (e as Error).message),
+        Alert.alert("Could not create profile", (e as Error).message),
     });
   }
 
@@ -38,13 +38,13 @@ export function CreatePortfolioScreen() {
           Welcome to WanderFree
         </Text>
         <Text variant="body" className="text-text-muted mb-8">
-          Name your first portfolio. A portfolio holds a set of credit cards
+          Name your first profile. A profile holds a set of credit cards
           and the benefits and spending around them. You can create more
           later for a household, business, or someone else&apos;s cards.
         </Text>
 
         <Text variant="label" className="text-text-subtle uppercase mb-2">
-          Portfolio name
+          Profile name
         </Text>
         <TextInput
           className="bg-surface border border-border rounded-xl px-4 py-3 mb-6 text-text"
@@ -60,7 +60,7 @@ export function CreatePortfolioScreen() {
           variant="primary"
           size="lg"
           fullWidth
-          label="Create portfolio"
+          label="Create profile"
           loading={submitting}
           disabled={name.trim().length === 0}
           onPress={handleSubmit}
