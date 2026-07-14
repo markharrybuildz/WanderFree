@@ -352,6 +352,95 @@ export function useBenefits(portfolioId: string | undefined) {
   });
 }
 
+/** One card's signup-bonus progress, flattened for the Home screen. */
+export interface SignupBonusProgress {
+  userCardId: string;
+  cardName: string;
+  /** Seed for the procedural card art (card_product id when known). */
+  artSeed: string;
+  bonusId: string;
+  requiredSpend: number;
+  bonusValue: number | null;
+  deadline: string | null;
+  spent: number;
+  isCompleted: boolean;
+}
+
+/** Signup-bonus progress for every active card in the portfolio that has
+ *  one. A card can theoretically hold several bonus rows; the most recent
+ *  is the live offer. */
+export function useSignupBonuses(portfolioId: string | undefined) {
+  return useQuery({
+    enabled: !!portfolioId,
+    queryKey: ["portfolio", portfolioId, "signup_bonuses"],
+    queryFn: async (): Promise<SignupBonusProgress[]> => {
+      const { data, error } = await supabase
+        .from("user_cards")
+        .select(
+          `
+          id, nickname,
+          card_product:card_products(id, name),
+          user_signup_bonuses(
+            id, required_spend, spend_deadline, bonus_value, is_completed, created_at
+          ),
+          spend_entries(id, amount, signup_bonus_id)
+          `,
+        )
+        .eq("portfolio_id", portfolioId!)
+        .eq("is_active", true);
+      if (error) throw error;
+
+      type Row = {
+        id: string;
+        nickname: string | null;
+        card_product: { id: string; name: string } | null;
+        user_signup_bonuses: Array<{
+          id: string;
+          required_spend: number;
+          spend_deadline: string | null;
+          bonus_value: number | null;
+          is_completed: boolean;
+          created_at: string;
+        }>;
+        spend_entries: Array<{
+          id: string;
+          amount: number;
+          signup_bonus_id: string | null;
+        }>;
+      };
+
+      const out: SignupBonusProgress[] = [];
+      for (const card of (data as unknown as Row[]) ?? []) {
+        const bonus = [...card.user_signup_bonuses].sort((a, b) =>
+          b.created_at.localeCompare(a.created_at),
+        )[0];
+        if (!bonus) continue;
+        const spent = card.spend_entries
+          .filter((s) => s.signup_bonus_id === bonus.id)
+          .reduce((sum, s) => sum + Number(s.amount), 0);
+        out.push({
+          userCardId: card.id,
+          cardName: card.nickname ?? card.card_product?.name ?? "Card",
+          artSeed: card.card_product?.id ?? card.id,
+          bonusId: bonus.id,
+          requiredSpend: Number(bonus.required_spend),
+          bonusValue: bonus.bonus_value == null ? null : Number(bonus.bonus_value),
+          deadline: bonus.spend_deadline,
+          spent,
+          isCompleted: bonus.is_completed,
+        });
+      }
+      // Soonest deadline first; no-deadline bonuses sink to the bottom.
+      out.sort(
+        (a, b) =>
+          (a.deadline ?? "9999-12-31").localeCompare(b.deadline ?? "9999-12-31") ||
+          a.cardName.localeCompare(b.cardName),
+      );
+      return out;
+    },
+  });
+}
+
 // ── Mutations ────────────────────────────────────────────────────────────
 
 /** Create a portfolio for the current user, add them as owner, and switch
@@ -438,12 +527,23 @@ export function useSetCurrentPortfolio() {
   });
 }
 
+/** Optional signup-bonus details captured alongside a new card. */
+export interface SignupBonusInput {
+  requiredSpend: number;
+  bonusValue: number | null;
+  deadline: string | null;
+}
+
 export function useAddUserCard(portfolioId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { cardProductId: string; openedOn: string | null }) => {
+    mutationFn: async (args: {
+      cardProductId: string;
+      openedOn: string | null;
+      bonus?: SignupBonusInput | null;
+    }) => {
       if (!portfolioId) throw new Error("No portfolio selected");
-      const { cardProductId, openedOn } = args;
+      const { cardProductId, openedOn, bonus } = args;
 
       // 1. Create the user_card.
       const { data: card, error: cErr } = await supabase
@@ -493,6 +593,17 @@ export function useAddUserCard(portfolioId: string | undefined) {
           .insert(cycles);
         if (cyErr) throw cyErr;
       }
+
+      // 3. Record the signup bonus, if the user provided one.
+      if (bonus) {
+        const { error: bErr } = await supabase.from("user_signup_bonuses").insert({
+          user_card_id: (card as { id: string }).id,
+          required_spend: bonus.requiredSpend,
+          bonus_value: bonus.bonusValue,
+          spend_deadline: bonus.deadline,
+        });
+        if (bErr) throw bErr;
+      }
     },
     onSuccess: async () => {
       // Adding a card ends onboarding even if the user never tapped "Got
@@ -503,6 +614,7 @@ export function useAddUserCard(portfolioId: string | undefined) {
       if (user) await markOnboarded(user.id);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses"] });
     },
   });
 }
@@ -565,6 +677,12 @@ export function useCardDetails(userCardId: string | undefined) {
           ),
           benefit_redemptions(
             id, benefit_definition_id, benefit_cycle_id, amount, redeemed_on, notes
+          ),
+          user_signup_bonuses(
+            id, required_spend, spend_deadline, bonus_value, is_completed, created_at
+          ),
+          spend_entries(
+            id, amount, spent_on, signup_bonus_id, created_at
           )
           `,
         )
@@ -771,6 +889,97 @@ export function useToggleBenefitRedeemed(portfolioId: string | undefined) {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+    },
+  });
+}
+
+// ── Signup bonuses + spend tracking ──────────────────────────────────────
+
+/** Attach a signup bonus to an existing user_card (from the card details
+ *  screen — the add-card modal inlines this into useAddUserCard instead). */
+export function useAddSignupBonus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { userCardId: string; bonus: SignupBonusInput }) => {
+      const { error } = await supabase.from("user_signup_bonuses").insert({
+        user_card_id: args.userCardId,
+        required_spend: args.bonus.requiredSpend,
+        bonus_value: args.bonus.bonusValue,
+        spend_deadline: args.bonus.deadline,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      // Home's bonus list is portfolio-scoped and these hooks only know the
+      // card id, so invalidate the whole portfolio prefix.
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+    },
+  });
+}
+
+/** Update editable fields on a signup bonus (card details edit modal). */
+export function useUpdateSignupBonus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      bonusId: string;
+      userCardId: string;
+      patch: Partial<{
+        required_spend: number;
+        bonus_value: number | null;
+        spend_deadline: string | null;
+        is_completed: boolean;
+      }>;
+    }) => {
+      const { error } = await supabase
+        .from("user_signup_bonuses")
+        .update(args.patch)
+        .eq("id", args.bonusId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+    },
+  });
+}
+
+/** Record a manual spend entry against a card. When the entry is linked to a
+ *  signup bonus and pushes the running spend total past required_spend, the
+ *  bonus is flipped to completed in the same mutation (no DB trigger exists
+ *  for this today). */
+export function useAddSpendEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: {
+      userCardId: string;
+      amount: number;
+      spentOn: string;
+      /** The open bonus to credit this spend toward, with its progress so
+       *  far, so completion can be derived without a second round-trip. */
+      bonus?: { id: string; requiredSpend: number; priorSpend: number } | null;
+    }) => {
+      const { userCardId, amount, spentOn, bonus } = args;
+      const { error } = await supabase.from("spend_entries").insert({
+        user_card_id: userCardId,
+        amount,
+        spent_on: spentOn,
+        signup_bonus_id: bonus?.id ?? null,
+      });
+      if (error) throw error;
+
+      if (bonus && bonus.priorSpend + amount >= bonus.requiredSpend) {
+        const { error: uErr } = await supabase
+          .from("user_signup_bonuses")
+          .update({ is_completed: true })
+          .eq("id", bonus.id);
+        if (uErr) throw uErr;
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 }

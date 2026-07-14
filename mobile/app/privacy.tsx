@@ -11,7 +11,7 @@
 import { router } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { Pressable, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/ui/Text";
 import { colors } from "@/lib/theme";
@@ -30,6 +30,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function PrivacyScreen() {
+  // Android 15 draws edge-to-edge; pad scroll content past the gesture bar.
+  const insets = useSafeAreaInsets();
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
       <View className="bg-surface border-b border-border px-4 py-4 flex-row items-center gap-3">
@@ -44,7 +46,9 @@ export default function PrivacyScreen() {
         <Text variant="h2">Privacy &amp; Beta Notice</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}
+      >
         <View className="bg-warning-subtle rounded-xl p-3 mb-5">
           <Text variant="caption" className="text-warning">
             WanderFree is currently in beta. This notice is provided in plain

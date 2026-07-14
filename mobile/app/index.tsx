@@ -7,7 +7,7 @@
 //   3. Once resolved:
 //        - signed out  -> /(auth)/sign-in
 //        - signed in, no onboarded flag -> /(app)/cards (popup will show)
-//        - signed in, onboarded -> /(app)/benefits
+//        - signed in, onboarded -> /(app)/home
 
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
@@ -44,9 +44,10 @@ export default function Index() {
   }
 
   if (!session) return <Redirect href="/(auth)/sign-in" />;
+  // Plain paths (no route groups) so these survive group reshuffles.
   return onboarded ? (
-    <Redirect href="/(app)/benefits" />
+    <Redirect href={"/home" as never} />
   ) : (
-    <Redirect href="/(app)/cards" />
+    <Redirect href={"/cards" as never} />
   );
 }

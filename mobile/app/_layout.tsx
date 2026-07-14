@@ -27,7 +27,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -65,11 +65,14 @@ export default function RootLayout() {
     return () => clearTimeout(t);
   }, [fontsLoaded, fontError]);
 
-  // Hide the native splash on the first layout of the real tree (not in an
-  // effect), so the splash stays up until content has actually painted —
-  // avoids a one-frame flash of a blank screen between hide and first paint.
-  const onLayout = useCallback(() => {
-    if (ready) SplashScreen.hideAsync().catch(() => {});
+  // Hide the native splash once the tree is committed. This must be an
+  // effect, not an onLayout on GestureHandlerRootView: Android's
+  // GestureHandlerRootView never forwards onLayout, so a layout-based hide
+  // leaves the splash up forever there (iOS forwards it fine).
+  useEffect(() => {
+    if (ready) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
   }, [ready]);
 
   if (!ready) {
@@ -77,7 +80,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayout}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <PersistQueryClientProvider
           client={queryClient}

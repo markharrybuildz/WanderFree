@@ -6,7 +6,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { DetailRow } from "@/components/ui/DetailRow";
@@ -29,6 +29,8 @@ import { colors } from "@/lib/theme";
 
 export default function BenefitDetailScreen() {
   const { key } = useLocalSearchParams<{ key: string }>();
+  // Android 15 draws edge-to-edge; pad scroll content past the gesture bar.
+  const insets = useSafeAreaInsets();
   const [cardId, defId] = (key ?? "").split("__");
 
   const { data: portfolio } = useCurrentPortfolio();
@@ -96,7 +98,9 @@ export default function BenefitDetailScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: insets.bottom + 24 }}
+      >
         {allotted != null && (
           <View className="bg-surface rounded-2xl border border-border p-4">
             <Text variant="label" className="text-text-subtle uppercase mb-2">
@@ -157,12 +161,21 @@ export default function BenefitDetailScreen() {
             size="lg"
             fullWidth
             label={b.fully_redeemed ? "Mark as available" : "Mark as used"}
-            onPress={() =>
+            onPress={() => {
+              const redeeming = !b.fully_redeemed;
               toggle.mutate(
-                { benefit: b, redeem: !b.fully_redeemed },
-                { onError: (e) => notify("Update failed", (e as Error).message) },
-              )
-            }
+                { benefit: b, redeem: redeeming },
+                {
+                  // Marking as used completes the task — take the user back
+                  // to the list. Un-redeeming stays put so they can see the
+                  // restored state.
+                  onSuccess: () => {
+                    if (redeeming) router.back();
+                  },
+                  onError: (e) => notify("Update failed", (e as Error).message),
+                },
+              );
+            }}
           />
         )}
       </ScrollView>

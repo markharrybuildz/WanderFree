@@ -162,8 +162,8 @@ export interface UserSignupBonus {
   id: string;
   user_card_id: string;
   required_spend: number;
-  spend_deadline: string;
-  bonus_value: number;
+  spend_deadline: string | null;
+  bonus_value: number | null;
   is_completed: boolean;
   created_at: string;
   updated_at: string;
@@ -175,7 +175,7 @@ export interface SpendEntry {
   signup_bonus_id: string | null;
   amount: number;
   spent_on: string;
-  reward_category_id: string;
+  reward_category_id: string | null;
   created_at: string;
   updated_at: string;
   reward_category?: RewardCategory;

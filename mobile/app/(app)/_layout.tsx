@@ -1,18 +1,20 @@
-// Authenticated tab navigator.
+// Authenticated stack: the (tabs) navigator plus the detail screens pushed
+// on top of it. Keeping card-details / benefit-detail out of the tab
+// navigator makes them real stack pushes, so router.back() returns to
+// whichever tab opened them (Home or Benefits) instead of falling back to
+// the first tab.
 //
-// Gates: this layout is also the auth + portfolio guard for the (app) route
+// Gates: this layout is also the auth + profile guard for the (app) route
 // group. Anything inside (app)/ requires (a) a session and (b) the user to
-// be a member of at least one portfolio. If they have no portfolio yet, we
-// render the onboarding screen instead of the tabs.
+// be a member of at least one profile. If they have no profile yet, we
+// render the onboarding screen instead.
 
-import { Redirect, Tabs } from "expo-router";
-import { CreditCard, Gift, Settings } from "lucide-react-native";
+import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
 import { CreatePortfolioScreen } from "@/components/CreatePortfolioScreen";
 import { useAuthSession } from "@/lib/auth";
 import { useCurrentPortfolio } from "@/lib/hooks";
-import { colors, fonts } from "@/lib/theme";
 
 export default function AppLayout() {
   const { session, loading: authLoading } = useAuthSession();
@@ -30,9 +32,9 @@ export default function AppLayout() {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
-  // Don't decide between onboarding and tabs until we know the portfolio
+  // Don't decide between onboarding and tabs until we know the profile
   // state — otherwise a fresh sign-in flashes the onboarding screen before
-  // the portfolio query resolves.
+  // the query resolves.
   if (portfolioLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-gray-50">
@@ -46,45 +48,10 @@ export default function AppLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        // A1 nav: clean white bar, sky-blue active, grey inactive.
-        tabBarActiveTintColor: colors.navActive,
-        tabBarInactiveTintColor: colors.navInactive,
-        tabBarStyle: {
-          backgroundColor: colors.navSurface,
-          borderTopColor: colors.border,
-        },
-        tabBarLabelStyle: {
-          fontFamily: fonts.medium,
-          fontSize: 11,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="benefits"
-        options={{
-          title: "Benefits",
-          tabBarIcon: ({ color }) => <Gift size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="cards"
-        options={{
-          title: "Cards",
-          tabBarIcon: ({ color }) => <CreditCard size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen name="card-details/[id]" options={{ href: null }} />
-      <Tabs.Screen name="benefit-detail/[key]" options={{ href: null }} />
-    </Tabs>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="card-details/[id]" />
+      <Stack.Screen name="benefit-detail/[key]" />
+    </Stack>
   );
 }
