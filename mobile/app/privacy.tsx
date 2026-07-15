@@ -75,6 +75,16 @@ export default function PrivacyScreen() {
           tracking. We don&apos;t sell your data or use it for advertising.
         </Section>
 
+        <Section title="Usage analytics">
+          To improve the app, we collect anonymous usage events: which screens
+          are viewed and which features are used (e.g. &quot;a card was
+          added&quot;). These events carry random identifiers — never your
+          email, name, card details, or spending amounts — and are only read
+          in aggregate. You can turn this off any time in Account → Share
+          anonymous usage data; events stop immediately and queued ones are
+          discarded.
+        </Section>
+
         <Section title="Where it lives">
           Data is stored with our backend provider (Supabase) and protected by
           per-user access rules so people can only read and write their own
@@ -83,7 +93,8 @@ export default function PrivacyScreen() {
 
         <Section title="Your choices">
           You can permanently delete your account and all associated data at any
-          time from Settings → Delete account. You can also email us at
+          time from Account → Delete account, and opt out of usage analytics
+          from Account → Share anonymous usage data. You can also email us at
           [your-support-email] with any request.
         </Section>
 

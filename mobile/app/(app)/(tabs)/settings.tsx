@@ -4,15 +4,17 @@
 
 import { router } from "expo-router";
 import { LogOut, Trash2 } from "lucide-react-native";
-import { Alert, Pressable, View } from "react-native";
+import { Alert, Pressable, Switch, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Text } from "@/components/ui/Text";
+import { useAnalyticsEnabled } from "@/lib/analytics";
 import { deleteAccount, signOut, useAuthSession } from "@/lib/auth";
 import { colors } from "@/lib/theme";
 
 export default function AccountScreen() {
   const { session } = useAuthSession();
+  const [analyticsOn, setAnalyticsOn] = useAnalyticsEnabled();
 
   async function handleSignOut() {
     const { error } = await signOut();
@@ -59,6 +61,29 @@ export default function AccountScreen() {
           </Text>
           <Text variant="body" className="mt-1">
             {session?.user.email}
+          </Text>
+        </View>
+
+        <Text variant="label" className="text-text-subtle uppercase px-2 mb-2">
+          Privacy
+        </Text>
+        <View className="bg-surface rounded-xl border border-border p-4 mb-4">
+          <View className="flex-row items-center justify-between">
+            <Text variant="callout" className="flex-1 pr-3">
+              Share anonymous usage data
+            </Text>
+            <Switch
+              value={analyticsOn}
+              onValueChange={setAnalyticsOn}
+              trackColor={{ true: colors.primary, false: colors.borderStrong }}
+              thumbColor="#FFFFFF"
+              accessibilityLabel="Share anonymous usage data"
+            />
+          </View>
+          <Text variant="caption" className="text-text-subtle mt-2">
+            Helps improve WanderFree. Screens viewed and features used — never
+            your email, card details, or spending amounts. See the Privacy
+            Policy below.
           </Text>
         </View>
 

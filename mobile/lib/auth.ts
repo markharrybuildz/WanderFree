@@ -8,6 +8,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 
+import { track } from "./analytics";
 import { queryClient } from "./queryClient";
 import { supabase } from "./supabase";
 
@@ -42,6 +43,7 @@ export function useAuthSession(): AuthState {
       setSession(newSession);
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
         queryClient.clear();
+        track(event === "SIGNED_IN" ? "signed_in" : "signed_out");
       }
     });
 
