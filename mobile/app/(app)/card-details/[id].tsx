@@ -313,8 +313,10 @@ export default function CardDetailsScreen() {
         userCardId: c.id,
         amount,
         spentOn: date,
-        // Credit toward the open bonus so progress (and completion) update.
-        bonusId: bonus && !bonus.is_completed ? bonus.id : null,
+        // Link ALL spend to the active bonus (even completed): if the user
+        // later raises the required-spend target, unlinked entries would
+        // under-report progress. The progress bar caps at 100% regardless.
+        bonusId: bonus ? bonus.id : null,
       },
       {
         onSuccess: () => setSpendModal(false),
@@ -710,7 +712,7 @@ export default function CardDetailsScreen() {
               Add spend
             </Text>
             <Text variant="body" className="text-text-muted mb-4">
-              {bonus && !bonus.is_completed
+              {bonus
                 ? "Counts toward your signup bonus progress."
                 : "Recorded against this card."}
             </Text>

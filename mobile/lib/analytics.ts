@@ -60,7 +60,12 @@ const PLATFORM: string | null = (["ios", "android", "web"] as string[]).includes
   ? Platform.OS
   : null;
 
-let enabled = true;
+// Tri-state: null until the persisted opt-out preference has loaded. Events
+// tracked in that window go to `preInit` (memory only, never persisted) and
+// are committed or discarded once the preference resolves — otherwise a
+// pre-init screen_view could outlive a user's opt-out.
+let enabled: boolean | null = null;
+let preInit: PendingEvent[] = [];
 let buffer: PendingEvent[] = [];
 let flushing = false;
 
@@ -71,8 +76,8 @@ export function track(
   properties: Record<string, unknown> = {},
   portfolioId?: string | null,
 ): void {
-  if (!enabled) return;
-  buffer.push({
+  if (enabled === false) return;
+  const event: PendingEvent = {
     id: uuidv4(),
     event_name: eventName.slice(0, 64),
     occurred_at: new Date().toISOString(),
@@ -81,7 +86,12 @@ export function track(
     app_version: APP_VERSION,
     portfolio_id: portfolioId ?? null,
     properties,
-  });
+  };
+  if (enabled === null) {
+    preInit.push(event);
+    return;
+  }
+  buffer.push(event);
   if (buffer.length > MAX_BUFFER) buffer = buffer.slice(-MAX_BUFFER);
   void persistBuffer();
   if (buffer.length >= MAX_BATCH) void flush();
@@ -96,19 +106,30 @@ async function persistBuffer(): Promise<void> {
 }
 
 async function flush(): Promise<void> {
-  if (flushing || !enabled || buffer.length === 0) return;
+  if (flushing || enabled !== true || buffer.length === 0) return;
   flushing = true;
   try {
     const batch = buffer.slice(0, MAX_BATCH);
     const { error } = await supabase.from("analytics_events").insert(batch);
-    if (!error || isPermanentError(error.code)) {
-      // Delivered — or undeliverable (constraint/permission/duplicate):
-      // either way, keeping the batch would just poison every future flush.
-      const sent = new Set(batch.map((e) => e.id));
-      buffer = buffer.filter((e) => !sent.has(e.id));
+    const done = new Set<string>();
+    if (!error) {
+      for (const e of batch) done.add(e.id);
+    } else if (isPermanentError(error.code)) {
+      // One bad row fails the whole batched insert. Retry rows one at a
+      // time so only the actually-invalid ones get dropped — transient
+      // per-row failures stay queued for the next flush.
+      for (const e of batch) {
+        const { error: rowErr } = await supabase
+          .from("analytics_events")
+          .insert(e);
+        if (!rowErr || isPermanentError(rowErr.code)) done.add(e.id);
+      }
+    }
+    // else: transient batch error (network, 5xx) — keep everything.
+    if (done.size > 0) {
+      buffer = buffer.filter((e) => !done.has(e.id));
       await persistBuffer();
     }
-    // Transient errors (network, 5xx): keep the batch for the next flush.
   } catch {
     // Network throw — retry on the next interval.
   } finally {
@@ -131,6 +152,7 @@ export async function setAnalyticsEnabled(value: boolean): Promise<void> {
     else {
       await AsyncStorage.setItem(OPT_OUT_KEY, "1");
       buffer = [];
+      preInit = [];
       await AsyncStorage.removeItem(BUFFER_KEY);
     }
   } catch {
@@ -140,7 +162,7 @@ export async function setAnalyticsEnabled(value: boolean): Promise<void> {
 
 /** Toggle state for the Account screen. Reflects persisted opt-out. */
 export function useAnalyticsEnabled(): [boolean, (v: boolean) => void] {
-  const [value, setValue] = useState(enabled);
+  const [value, setValue] = useState(enabled ?? true);
   useEffect(() => {
     let mounted = true;
     AsyncStorage.getItem(OPT_OUT_KEY).then((optedOut) => {
@@ -166,13 +188,24 @@ async function init(): Promise<void> {
       AsyncStorage.getItem(BUFFER_KEY),
     ]);
     enabled = optedOut == null;
-    if (enabled && persisted) {
-      const restored = JSON.parse(persisted) as PendingEvent[];
-      // Prepend so pre-restart events keep their order ahead of new ones.
-      buffer = [...restored, ...buffer].slice(-MAX_BUFFER);
+    if (enabled) {
+      const restored = persisted ? (JSON.parse(persisted) as PendingEvent[]) : [];
+      // Restored (oldest) → pre-init staging → anything newer.
+      buffer = [...restored, ...preInit, ...buffer].slice(-MAX_BUFFER);
+      preInit = [];
+      await persistBuffer();
+    } else {
+      // Opted out: discard the pre-init staging queue AND any stale
+      // persisted buffer so nothing recorded pre-resolution survives.
+      preInit = [];
+      buffer = [];
+      await AsyncStorage.removeItem(BUFFER_KEY);
     }
   } catch {
-    // Defaults (enabled, empty buffer) are fine.
+    // Storage unreadable — fail open (default-on model) and keep staged events.
+    enabled = true;
+    buffer = [...preInit, ...buffer].slice(-MAX_BUFFER);
+    preInit = [];
   }
   track("app_open");
   void flush();
