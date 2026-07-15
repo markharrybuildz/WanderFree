@@ -314,10 +314,7 @@ export default function CardDetailsScreen() {
         amount,
         spentOn: date,
         // Credit toward the open bonus so progress (and completion) update.
-        bonus:
-          bonus && !bonus.is_completed
-            ? { id: bonus.id, requiredSpend: Number(bonus.required_spend) }
-            : null,
+        bonusId: bonus && !bonus.is_completed ? bonus.id : null,
       },
       {
         onSuccess: () => setSpendModal(false),

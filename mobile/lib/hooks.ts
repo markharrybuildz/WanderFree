@@ -19,6 +19,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { track } from "./analytics";
 import { markOnboarded } from "./onboarding";
 import { supabase } from "./supabase";
 import type {
@@ -612,6 +613,7 @@ export function useAddUserCard(portfolioId: string | undefined) {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) await markOnboarded(user.id);
+      track("card_added", {}, portfolioId);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses"] });
@@ -887,6 +889,9 @@ export function useToggleBenefitRedeemed(portfolioId: string | undefined) {
         if (delErr) throw delErr;
       }
     },
+    onSuccess: (_data, vars) => {
+      track("benefit_redeemed", { redeem: vars.redeem }, portfolioId);
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
     },
@@ -945,16 +950,11 @@ export function useUpdateSignupBonus() {
   });
 }
 
-/** Record a manual spend entry against a card. When the entry is linked to a
- *  signup bonus, completion is re-derived from a fresh server-side sum (not
- *  client state, which can be stale across devices) and flipped if the
- *  threshold is crossed.
- *
- *  The insert and the completion flag are still two statements, not one
- *  transaction — a flag failure is deliberately NON-fatal, because rejecting
- *  after the insert committed prompts a retry that duplicates the spend row.
- *  The flag self-heals on the next spend add or bonus edit. TODO: fold both
- *  into one Postgres function in the next schema deploy. */
+/** Record a manual spend entry against a card via the `add_spend_entry`
+ *  Postgres function (migration 20260715120500): the insert and the
+ *  signup-bonus completion check run in ONE transaction, with completion
+ *  derived from a fresh server-side sum. SECURITY INVOKER, so RLS gates the
+ *  write exactly like a direct insert would. */
 export function useAddSpendEntry() {
   const qc = useQueryClient();
   return useMutation({
@@ -962,36 +962,19 @@ export function useAddSpendEntry() {
       userCardId: string;
       amount: number;
       spentOn: string;
-      /** The open bonus to credit this spend toward. */
-      bonus?: { id: string; requiredSpend: number } | null;
+      /** The open bonus to credit this spend toward, or null. */
+      bonusId?: string | null;
     }) => {
-      const { userCardId, amount, spentOn, bonus } = args;
-      const { error } = await supabase.from("spend_entries").insert({
-        user_card_id: userCardId,
-        amount,
-        spent_on: spentOn,
-        signup_bonus_id: bonus?.id ?? null,
+      const { error } = await supabase.rpc("add_spend_entry", {
+        p_user_card_id: args.userCardId,
+        p_amount: args.amount,
+        p_spent_on: args.spentOn,
+        p_signup_bonus_id: args.bonusId ?? null,
       });
       if (error) throw error;
-
-      if (bonus) {
-        const { data: rows, error: sumErr } = await supabase
-          .from("spend_entries")
-          .select("amount")
-          .eq("signup_bonus_id", bonus.id);
-        if (!sumErr && rows) {
-          const total = rows.reduce((sum, r) => sum + Number(r.amount), 0);
-          if (total >= bonus.requiredSpend) {
-            const { error: uErr } = await supabase
-              .from("user_signup_bonuses")
-              .update({ is_completed: true })
-              .eq("id", bonus.id);
-            if (uErr) console.warn("Bonus completion flag update failed:", uErr.message);
-          }
-        }
-      }
     },
     onSuccess: (_data, vars) => {
+      track("spend_added", { linked_to_bonus: vars.bonusId != null });
       qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
       qc.invalidateQueries({ queryKey: ["portfolio"] });
     },

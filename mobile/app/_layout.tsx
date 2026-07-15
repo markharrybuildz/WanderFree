@@ -24,14 +24,24 @@ import {
   useFonts,
 } from "@expo-google-fonts/outfit";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { track } from "@/lib/analytics";
 import { persister, queryClient } from "@/lib/queryClient";
+
+/** Emits a screen_view event on every route change. Renders nothing. */
+function ScreenTracker() {
+  const pathname = usePathname();
+  useEffect(() => {
+    track("screen_view", { pathname });
+  }, [pathname]);
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -86,6 +96,7 @@ export default function RootLayout() {
           client={queryClient}
           persistOptions={{ persister }}
         >
+          <ScreenTracker />
           <Stack screenOptions={{ headerShown: false }} />
           <StatusBar style="auto" />
         </PersistQueryClientProvider>
