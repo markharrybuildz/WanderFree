@@ -72,6 +72,24 @@ export function benefitValueLabel(b: UserVisibleBenefit): string | null {
   return named != null ? usd(named) : null;
 }
 
+/** Format a rewards amount in its program's native unit: "60,000 pts",
+ *  "12,500 miles", or "$200" for cash-back programs. Falls back to "pts"
+ *  when the unit is unknown. */
+export function formatProgramAmount(
+  value: number,
+  unitType?: string | null,
+): string {
+  if (unitType === "cash_back") return usd(value);
+  const n = Math.round(value).toLocaleString();
+  return `${n} ${unitType === "miles" ? "miles" : "pts"}`;
+}
+
+/** Short label for a program unit, for form-field hints: "pts", "miles", "$". */
+export function programUnitLabel(unitType?: string | null): string {
+  if (unitType === "cash_back") return "$";
+  return unitType === "miles" ? "miles" : "pts";
+}
+
 /** Local-calendar "YYYY-MM-DD" for `d` (defaults to now). Never go through
  *  toISOString() for this — it converts to UTC first, which shifts the
  *  calendar day for negative-offset timezones (all of the US) in the

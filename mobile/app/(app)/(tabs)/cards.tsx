@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { Text } from "@/components/ui/Text";
 import { confirmDestructive, notify } from "@/lib/dialog";
-import { localIsoDay } from "@/lib/format";
+import { localIsoDay, programUnitLabel } from "@/lib/format";
 import {
   useAddUserCard,
   useCardProducts,
@@ -456,12 +456,16 @@ export default function CardsScreen() {
               </View>
               <View className="flex-1">
                 <Text variant="label" className="text-text-subtle uppercase mb-2">
-                  Bonus value
+                  Bonus ({programUnitLabel(addTarget?.rewards_program?.unit_type)})
                 </Text>
                 <TextInput
                   className="bg-surface border border-border rounded-xl px-4 py-3 text-text"
                   style={{ fontFamily: fonts.regular, fontSize: 16 }}
-                  placeholder="$800"
+                  placeholder={
+                    addTarget?.rewards_program?.unit_type === "cash_back"
+                      ? "$200"
+                      : "60,000"
+                  }
                   placeholderTextColor={colors.textSubtle}
                   value={bonusValue}
                   onChangeText={setBonusValue}

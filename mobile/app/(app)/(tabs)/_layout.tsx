@@ -2,7 +2,7 @@
 // level up in (app)/_layout.tsx.
 
 import { Tabs } from "expo-router";
-import { CircleUser, CreditCard, Gift, House } from "lucide-react-native";
+import { CircleUser, Coins, CreditCard, Gift, House } from "lucide-react-native";
 
 import { colors, fonts } from "@/lib/theme";
 
@@ -43,6 +43,13 @@ export default function TabsLayout() {
         options={{
           title: "Cards",
           tabBarIcon: ({ color }) => <CreditCard size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="points"
+        options={{
+          title: "Points",
+          tabBarIcon: ({ color }) => <Coins size={22} color={color} />,
         }}
       />
       <Tabs.Screen
