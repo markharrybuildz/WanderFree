@@ -134,15 +134,22 @@ export default function CardsScreen() {
   );
 
   // Word-wise search: every whitespace-separated term must appear somewhere
-  // in the card name or issuer name.
+  // in the card name or issuer name. Cards the user holds bubble to the top
+  // (stable sort keeps the catalog's alphabetical order within each group).
   const visibleCards = useMemo(() => {
+    const held = new Set((userCards ?? []).map((uc) => uc.card_product_id));
     const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
-    if (terms.length === 0) return allCards ?? [];
-    return (allCards ?? []).filter((c) => {
-      const haystack = `${c.name} ${c.issuer?.name ?? ""}`.toLowerCase();
-      return terms.every((t) => haystack.includes(t));
-    });
-  }, [allCards, search]);
+    const list =
+      terms.length === 0
+        ? [...(allCards ?? [])]
+        : (allCards ?? []).filter((c) => {
+            const haystack = `${c.name} ${c.issuer?.name ?? ""}`.toLowerCase();
+            return terms.every((t) => haystack.includes(t));
+          });
+    return list.sort(
+      (a, b) => Number(held.has(b.id)) - Number(held.has(a.id)),
+    );
+  }, [allCards, userCards, search]);
 
   function startAdd(card: CardProduct) {
     setOpenedOn(todayIso());
