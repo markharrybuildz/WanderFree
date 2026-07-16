@@ -133,22 +133,22 @@ export default function CardsScreen() {
     0,
   );
 
-  // Word-wise search: every whitespace-separated term must appear somewhere
-  // in the card name or issuer name. Cards the user holds bubble to the top
-  // (stable sort keeps the catalog's alphabetical order within each group).
+  // Default view shows ONLY the cards the user holds; the rest of the
+  // catalog is reachable through search. While searching, all matches show
+  // (word-wise: every term must appear in the card or issuer name), with
+  // held matches first — stable sort keeps alphabetical order within groups.
   const visibleCards = useMemo(() => {
     const held = new Set((userCards ?? []).map((uc) => uc.card_product_id));
     const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
-    const list =
-      terms.length === 0
-        ? [...(allCards ?? [])]
-        : (allCards ?? []).filter((c) => {
-            const haystack = `${c.name} ${c.issuer?.name ?? ""}`.toLowerCase();
-            return terms.every((t) => haystack.includes(t));
-          });
-    return list.sort(
-      (a, b) => Number(held.has(b.id)) - Number(held.has(a.id)),
-    );
+    if (terms.length === 0) {
+      return (allCards ?? []).filter((c) => held.has(c.id));
+    }
+    return (allCards ?? [])
+      .filter((c) => {
+        const haystack = `${c.name} ${c.issuer?.name ?? ""}`.toLowerCase();
+        return terms.every((t) => haystack.includes(t));
+      })
+      .sort((a, b) => Number(held.has(b.id)) - Number(held.has(a.id)));
   }, [allCards, userCards, search]);
 
   function startAdd(card: CardProduct) {
@@ -398,7 +398,7 @@ export default function CardsScreen() {
             <Text variant="body" className="text-text-muted text-center">
               {search.trim()
                 ? `No cards match “${search.trim()}”.`
-                : "No cards in the catalog yet.\nAdd card_products in Supabase to populate it."}
+                : "No cards yet.\nSearch the catalog above by card or issuer\nname to add your first one."}
             </Text>
           </View>
         }
@@ -522,17 +522,16 @@ export default function CardsScreen() {
               Add your cards
             </Text>
             <Text variant="body" className="text-text-muted mb-6">
-              Tap{" "}
+              Search for your cards by name or issuer, then tap{" "}
               <Text
                 variant="body"
                 className="text-text"
                 style={{ fontFamily: fonts.semibold }}
               >
-                Add
+                +
               </Text>{" "}
-              next to any card to add it to your portfolio. We&apos;ll track its
-              benefits and credits for you, and you&apos;ll see them all on the
-              Benefits tab.
+              to add them. We&apos;ll track their benefits and credits for you,
+              and you&apos;ll see them all on the Benefits tab.
             </Text>
             <Button variant="primary" label="Got it" fullWidth onPress={dismissWelcome} />
           </View>
