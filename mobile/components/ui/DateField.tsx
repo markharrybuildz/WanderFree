@@ -170,21 +170,28 @@ export function DateField({
         >
           <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
             <View className="bg-surface rounded-2xl p-4 w-full max-w-md">
-              <DateTimePicker
-                value={iosDraft}
-                mode="date"
-                display="inline"
-                maximumDate={maximumDate}
-                minimumDate={minimumDate}
-                accentColor={colors.primaryStrong}
-                // The app is light-only but the native picker follows the
-                // SYSTEM appearance — in device dark mode it paints white
-                // text onto our white card, making the calendar invisible.
-                themeVariant="light"
-                onChange={(_event, date) => {
-                  if (date) setIosDraft(date);
-                }}
-              />
+              {/* Spinner, not inline: the inline calendar's month/year header
+                  toggle confused users, and its Date props (value/max) get
+                  zeroed to the 1969 epoch when nested inside another Modal on
+                  the new architecture. The spinner shows all three wheels at
+                  once, and bounds are enforced in JS at Done instead of via
+                  native props. Mounted only while open so no stale native
+                  state survives between openings. */}
+              {iosOpen && (
+                <DateTimePicker
+                  value={iosDraft}
+                  mode="date"
+                  display="spinner"
+                  accentColor={colors.primaryStrong}
+                  // The app is light-only but the native picker follows the
+                  // SYSTEM appearance — in device dark mode it paints white
+                  // text onto our white card, making the wheels invisible.
+                  themeVariant="light"
+                  onChange={(_event, date) => {
+                    if (date) setIosDraft(date);
+                  }}
+                />
+              )}
               <View className="flex-row gap-3 mt-2">
                 <Button
                   variant="ghost"
@@ -197,7 +204,10 @@ export function DateField({
                   label="Done"
                   className="flex-1"
                   onPress={() => {
-                    onChange(toIsoDay(iosDraft));
+                    let picked = iosDraft;
+                    if (maximumDate && picked > maximumDate) picked = maximumDate;
+                    if (minimumDate && picked < minimumDate) picked = minimumDate;
+                    onChange(toIsoDay(picked));
                     setIosOpen(false);
                   }}
                 />
