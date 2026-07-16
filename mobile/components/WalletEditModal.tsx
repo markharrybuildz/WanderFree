@@ -1,9 +1,11 @@
 // Manual balance editing for a program wallet, shared by the Points tab and
 // the card-details Rewards section.
 //
-// Two modes because that's how people actually know their points:
+// Three modes because that's how people actually know their points:
 //   * "Set total" — you just checked the issuer portal and know the number.
 //   * "Add"       — a statement told you what you earned this month.
+//   * "Subtract"  — you redeemed some (a dedicated mode because the numeric
+//                   keypads don't reliably offer a minus key).
 // A live preview shows the resulting balance before saving.
 
 import { useState } from "react";
@@ -17,7 +19,7 @@ import { formatProgramAmount, programUnitLabel } from "@/lib/format";
 import { colors, fonts } from "@/lib/theme";
 import type { ProgramUnitType } from "@/lib/types";
 
-type Mode = "set" | "add";
+type Mode = "set" | "add" | "subtract";
 
 export function WalletEditModal({
   open,
@@ -43,15 +45,17 @@ export function WalletEditModal({
     const cleaned = amountText.replace(/[$,\s]/g, "");
     if (!cleaned) return null;
     const n = Number(cleaned);
-    return Number.isFinite(n) ? n : null;
+    return Number.isFinite(n) && n >= 0 ? n : null;
   })();
 
   const nextBalance =
     parsed == null
       ? null
       : mode === "set"
-        ? Math.max(0, parsed)
-        : Math.max(0, currentBalance + parsed);
+        ? parsed
+        : mode === "add"
+          ? currentBalance + parsed
+          : Math.max(0, currentBalance - parsed);
 
   function handleSave() {
     if (nextBalance == null) {
@@ -82,6 +86,7 @@ export function WalletEditModal({
               [
                 { key: "set", label: "Set total" },
                 { key: "add", label: "Add" },
+                { key: "subtract", label: "Subtract" },
               ] as { key: Mode; label: string }[]
             ).map((o) => {
               const active = o.key === mode;
@@ -108,7 +113,9 @@ export function WalletEditModal({
           <Text variant="label" className="text-text-subtle uppercase mb-2">
             {mode === "set"
               ? `New total (${programUnitLabel(unitType)})`
-              : `Amount to add (${programUnitLabel(unitType)})`}
+              : mode === "add"
+                ? `Amount to add (${programUnitLabel(unitType)})`
+                : `Amount to subtract (${programUnitLabel(unitType)})`}
           </Text>
           <TextInput
             className="bg-surface border border-border rounded-xl px-4 py-3 mb-2 text-text"
@@ -123,9 +130,7 @@ export function WalletEditModal({
           <Text variant="caption" className="text-text-muted mb-4">
             {nextBalance != null
               ? `New balance: ${formatProgramAmount(nextBalance, unitType)}`
-              : mode === "add"
-                ? "Tip: use a negative number to subtract."
-                : " "}
+              : " "}
           </Text>
 
           <View className="flex-row gap-3">

@@ -43,11 +43,27 @@ export default function PointsScreen() {
 
   const [editing, setEditing] = useState<ProgramWallet | null>(null);
 
-  if (portfolioLoading || isLoading) {
+  if (portfolioLoading || (portfolioId && isLoading)) {
     return (
       <SafeAreaView className="flex-1 bg-bg">
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!portfolioId) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+        <View className="bg-surface border-b border-border px-4 py-4">
+          <Text variant="display">Points</Text>
+        </View>
+        <View className="flex-1 items-center justify-center px-6">
+          <Text variant="body" className="text-text-muted text-center">
+            You&apos;re not a member of any profile yet.{"\n"}
+            Create one to get started.
+          </Text>
         </View>
       </SafeAreaView>
     );

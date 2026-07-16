@@ -226,7 +226,10 @@ export default function CardDetailsScreen() {
   const programWallet = program
     ? (programWallets?.wallets ?? []).find((w) => w.programId === program.id) ?? null
     : null;
-  const programBalance = programWallet?.balance ?? 0;
+  // null while the wallet query is in flight — editing must stay disabled,
+  // or "Add" would compute from a phantom zero and clobber the real balance.
+  const programBalance =
+    programWallets == null ? null : (programWallet?.balance ?? 0);
   // Local calendar days — toISOString() would shift the day in US timezones,
   // and fixed-ms subtraction breaks across DST; step by date parts instead.
   const todayIso = localIsoDay();
@@ -398,25 +401,29 @@ export default function CardDetailsScreen() {
               <Text variant="label" className="text-text-subtle uppercase">
                 Rewards
               </Text>
-              <Pressable
-                onPress={() => setWalletEditOpen(true)}
-                className="flex-row items-center gap-1 px-2 py-1"
-                hitSlop={4}
-                accessibilityRole="button"
-                accessibilityLabel="Edit points balance"
-              >
-                <Pencil size={13} color={colors.primaryStrong} />
-                <Text variant="label" className="text-primary-strong">
-                  Edit balance
-                </Text>
-              </Pressable>
+              {programBalance != null && (
+                <Pressable
+                  onPress={() => setWalletEditOpen(true)}
+                  className="flex-row items-center gap-1 px-2 py-1"
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit points balance"
+                >
+                  <Pencil size={13} color={colors.primaryStrong} />
+                  <Text variant="label" className="text-primary-strong">
+                    Edit balance
+                  </Text>
+                </Pressable>
+              )}
             </View>
             <View className="flex-row items-center justify-between px-4 py-3">
               <Text variant="callout" className="text-text-muted flex-1 pr-3">
                 {program.name}
               </Text>
               <Text variant="h2">
-                {formatProgramAmount(programBalance, program.unit_type)}
+                {programBalance == null
+                  ? "—"
+                  : formatProgramAmount(programBalance, program.unit_type)}
               </Text>
             </View>
           </View>
@@ -840,7 +847,7 @@ export default function CardDetailsScreen() {
         </View>
       </Modal>
 
-      {program && walletEditOpen && (
+      {program && walletEditOpen && programBalance != null && (
         <WalletEditModal
           open
           programName={program.name}

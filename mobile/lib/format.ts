@@ -79,7 +79,13 @@ export function formatProgramAmount(
   value: number,
   unitType?: string | null,
 ): string {
-  if (unitType === "cash_back") return usd(value);
+  if (unitType === "cash_back") {
+    // Keep cents for cash balances ($210.55 must not read as $211).
+    return `$${value.toLocaleString(undefined, {
+      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
   const n = Math.round(value).toLocaleString();
   return `${n} ${unitType === "miles" ? "miles" : "pts"}`;
 }

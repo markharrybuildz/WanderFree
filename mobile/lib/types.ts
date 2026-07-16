@@ -165,6 +165,8 @@ export interface UserSignupBonus {
   spend_deadline: string | null;
   bonus_value: number | null;
   is_completed: boolean;
+  /** Amount actually credited to the program wallet (ledger, trigger-maintained). */
+  credited_amount: number | null;
   created_at: string;
   updated_at: string;
 }

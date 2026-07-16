@@ -381,7 +381,7 @@ export interface SignupBonusProgress {
 export function useSignupBonuses(portfolioId: string | undefined) {
   return useQuery({
     enabled: !!portfolioId,
-    queryKey: ["portfolio", portfolioId, "signup_bonuses"],
+    queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"],
     queryFn: async (): Promise<SignupBonusProgress[]> => {
       const { data, error } = await supabase
         .from("user_cards")
@@ -588,11 +588,12 @@ export function useProgramWallets(portfolioId: string | undefined) {
           name: card.nickname ?? card.card_product?.name ?? "Card",
           artSeed: card.card_product?.id ?? card.id,
         });
-        const bonus = [...card.user_signup_bonuses].sort((a, b) =>
-          b.created_at.localeCompare(a.created_at),
-        )[0];
-        if (bonus && !bonus.is_completed && bonus.bonus_value != null) {
-          entry.pendingBonus += Number(bonus.bonus_value);
+        // Every incomplete bonus counts: the credit trigger pays out each
+        // completed row, so pending must mirror that contract.
+        for (const bonus of card.user_signup_bonuses) {
+          if (!bonus.is_completed && bonus.bonus_value != null) {
+            entry.pendingBonus += Number(bonus.bonus_value);
+          }
         }
       }
 
@@ -805,7 +806,7 @@ export function useAddUserCard(portfolioId: string | undefined) {
       track("card_added", {}, portfolioId);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses"] });
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"] });
     },
   });
 }
@@ -835,6 +836,8 @@ export function useUpdateUserCard(portfolioId: string | undefined) {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      // Points-tab rows display card nicknames.
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
       qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
     },
   });
