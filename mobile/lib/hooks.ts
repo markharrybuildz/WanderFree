@@ -10,11 +10,16 @@
 // hook signatures below (they already accept portfolioId).
 //
 // Cache keys:
-//   ["card_products"]                 catalog (public read)
+//   ["card_products_v2"]              catalog (public read)
 //   ["current_portfolio"]             { id } for the signed-in user
 //   ["portfolio", id, "user_cards"]   cards held in a portfolio
 //   ["portfolio", id, "benefits"]     benefits across all cards in a portfolio
-//   ["portfolio", id, "wallets"]      points/cash balances per program
+//   ["portfolio", id, "wallets"]      raw wallet_accounts rows
+//   ["portfolio", id, "program_wallets_v2"]  Points-tab aggregation
+//   ["card_v2", userCardId]           card details
+// The _v2 suffixes bust the AsyncStorage-persisted cache from before the
+// rewards-program backfill (and a result-shape change); bump again if a
+// query's shape changes without its key changing.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +30,7 @@ import { supabase } from "./supabase";
 import type {
   CardProduct,
   Portfolio,
+  ProgramUnitType,
   ResetFrequency,
   UserBenefitCycle,
   UserCard,
@@ -110,7 +116,7 @@ function computeCalendarPeriod(
 
 export function useCardProducts() {
   return useQuery({
-    queryKey: ["card_products"],
+    queryKey: ["card_products_v2"],
     queryFn: async (): Promise<CardProduct[]> => {
       const { data, error } = await supabase
         .from("card_products")
@@ -362,6 +368,8 @@ export interface SignupBonusProgress {
   bonusId: string;
   requiredSpend: number;
   bonusValue: number | null;
+  /** Unit the bonus pays out in (from the card's rewards program). */
+  unitType: ProgramUnitType | null;
   deadline: string | null;
   spent: number;
   isCompleted: boolean;
@@ -373,14 +381,16 @@ export interface SignupBonusProgress {
 export function useSignupBonuses(portfolioId: string | undefined) {
   return useQuery({
     enabled: !!portfolioId,
-    queryKey: ["portfolio", portfolioId, "signup_bonuses"],
+    queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"],
     queryFn: async (): Promise<SignupBonusProgress[]> => {
       const { data, error } = await supabase
         .from("user_cards")
         .select(
           `
           id, nickname,
-          card_product:card_products(id, name),
+          card_product:card_products(
+            id, name, rewards_program:rewards_programs(unit_type)
+          ),
           user_signup_bonuses(
             id, required_spend, spend_deadline, bonus_value, is_completed, created_at
           ),
@@ -394,7 +404,11 @@ export function useSignupBonuses(portfolioId: string | undefined) {
       type Row = {
         id: string;
         nickname: string | null;
-        card_product: { id: string; name: string } | null;
+        card_product: {
+          id: string;
+          name: string;
+          rewards_program: { unit_type: ProgramUnitType } | null;
+        } | null;
         user_signup_bonuses: Array<{
           id: string;
           required_spend: number;
@@ -426,6 +440,7 @@ export function useSignupBonuses(portfolioId: string | undefined) {
           bonusId: bonus.id,
           requiredSpend: Number(bonus.required_spend),
           bonusValue: bonus.bonus_value == null ? null : Number(bonus.bonus_value),
+          unitType: card.card_product?.rewards_program?.unit_type ?? null,
           deadline: bonus.spend_deadline,
           spent,
           isCompleted: bonus.is_completed,
@@ -438,6 +453,181 @@ export function useSignupBonuses(portfolioId: string | undefined) {
           a.cardName.localeCompare(b.cardName),
       );
       return out;
+    },
+  });
+}
+
+/** One rewards program's wallet, aggregated for the Points screen: the
+ *  balance, the active cards that earn into it, and points still pending
+ *  from incomplete signup bonuses. */
+export interface ProgramWallet {
+  programId: string;
+  programName: string;
+  unitType: ProgramUnitType;
+  /** null when no wallet row exists yet (created on first edit / credit). */
+  walletId: string | null;
+  balance: number;
+  cards: { userCardId: string; name: string; artSeed: string }[];
+  pendingBonus: number;
+}
+
+export interface ProgramWalletsResult {
+  wallets: ProgramWallet[];
+  /** Active cards whose product has no rewards program (true non-rewards
+   *  cards, or catalog rows that still need linking). Shown on the Points
+   *  screen so a card is never silently absent. */
+  unlinkedCards: { userCardId: string; name: string; artSeed: string }[];
+}
+
+/** Program wallets for the Points tab: every rewards program the user's
+ *  active cards earn into (balance 0 if no wallet row yet), plus any
+ *  orphaned wallets whose cards were since removed (points outlive cards). */
+export function useProgramWallets(portfolioId: string | undefined) {
+  return useQuery({
+    enabled: !!portfolioId,
+    // v2: bumped when the result shape changed ({wallets, unlinkedCards}) —
+    // the persisted cache would otherwise serve the old array shape (and a
+    // pre-backfill empty result) as fresh for an hour.
+    queryKey: ["portfolio", portfolioId, "program_wallets_v2"],
+    queryFn: async (): Promise<ProgramWalletsResult> => {
+      const [cardsRes, walletsRes] = await Promise.all([
+        supabase
+          .from("user_cards")
+          .select(
+            `
+            id, nickname,
+            card_product:card_products(
+              id, name, rewards_program:rewards_programs(id, name, unit_type)
+            ),
+            user_signup_bonuses(id, bonus_value, is_completed, created_at)
+            `,
+          )
+          .eq("portfolio_id", portfolioId!)
+          .eq("is_active", true),
+        supabase
+          .from("wallet_accounts")
+          .select("id, rewards_program_id, balance, rewards_program:rewards_programs(id, name, unit_type)")
+          .eq("portfolio_id", portfolioId!),
+      ]);
+      if (cardsRes.error) throw cardsRes.error;
+      if (walletsRes.error) throw walletsRes.error;
+
+      type CardRow = {
+        id: string;
+        nickname: string | null;
+        card_product: {
+          id: string;
+          name: string;
+          rewards_program: {
+            id: string;
+            name: string;
+            unit_type: ProgramUnitType;
+          } | null;
+        } | null;
+        user_signup_bonuses: Array<{
+          id: string;
+          bonus_value: number | null;
+          is_completed: boolean;
+          created_at: string;
+        }>;
+      };
+      type WalletRow = {
+        id: string;
+        rewards_program_id: string;
+        balance: number;
+        rewards_program: {
+          id: string;
+          name: string;
+          unit_type: ProgramUnitType;
+        } | null;
+      };
+
+      const byProgram = new Map<string, ProgramWallet>();
+
+      // Seed from wallet rows (covers programs whose cards were removed).
+      for (const w of (walletsRes.data as unknown as WalletRow[]) ?? []) {
+        if (!w.rewards_program) continue;
+        byProgram.set(w.rewards_program.id, {
+          programId: w.rewards_program.id,
+          programName: w.rewards_program.name,
+          unitType: w.rewards_program.unit_type,
+          walletId: w.id,
+          balance: Number(w.balance),
+          cards: [],
+          pendingBonus: 0,
+        });
+      }
+
+      // Attach active cards + pending (incomplete) bonus values.
+      const unlinkedCards: ProgramWalletsResult["unlinkedCards"] = [];
+      for (const card of (cardsRes.data as unknown as CardRow[]) ?? []) {
+        const program = card.card_product?.rewards_program;
+        if (!program) {
+          unlinkedCards.push({
+            userCardId: card.id,
+            name: card.nickname ?? card.card_product?.name ?? "Card",
+            artSeed: card.card_product?.id ?? card.id,
+          });
+          continue;
+        }
+        let entry = byProgram.get(program.id);
+        if (!entry) {
+          entry = {
+            programId: program.id,
+            programName: program.name,
+            unitType: program.unit_type,
+            walletId: null,
+            balance: 0,
+            cards: [],
+            pendingBonus: 0,
+          };
+          byProgram.set(program.id, entry);
+        }
+        entry.cards.push({
+          userCardId: card.id,
+          name: card.nickname ?? card.card_product?.name ?? "Card",
+          artSeed: card.card_product?.id ?? card.id,
+        });
+        // Every incomplete bonus counts: the credit trigger pays out each
+        // completed row, so pending must mirror that contract.
+        for (const bonus of card.user_signup_bonuses) {
+          if (!bonus.is_completed && bonus.bonus_value != null) {
+            entry.pendingBonus += Number(bonus.bonus_value);
+          }
+        }
+      }
+
+      const wallets = Array.from(byProgram.values()).sort(
+        (a, b) => b.balance - a.balance || a.programName.localeCompare(b.programName),
+      );
+      unlinkedCards.sort((a, b) => a.name.localeCompare(b.name));
+      return { wallets, unlinkedCards };
+    },
+  });
+}
+
+/** Set a program wallet's balance (manual entry — there's no bank linking).
+ *  Upserts on the (portfolio, program) unique key, so the first edit for a
+ *  program creates its wallet row. */
+export function useSetWalletBalance(portfolioId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { programId: string; balance: number }) => {
+      if (!portfolioId) throw new Error("No profile selected");
+      const { error } = await supabase.from("wallet_accounts").upsert(
+        {
+          portfolio_id: portfolioId,
+          rewards_program_id: args.programId,
+          balance: args.balance,
+        },
+        { onConflict: "portfolio_id,rewards_program_id" },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      track("wallet_balance_edited");
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "wallets"] });
     },
   });
 }
@@ -616,7 +806,7 @@ export function useAddUserCard(portfolioId: string | undefined) {
       track("card_added", {}, portfolioId);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses"] });
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"] });
     },
   });
 }
@@ -646,7 +836,9 @@ export function useUpdateUserCard(portfolioId: string | undefined) {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
-      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      // Points-tab rows display card nicknames.
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
+      qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
     },
   });
 }
@@ -658,7 +850,7 @@ export function useUpdateUserCard(portfolioId: string | undefined) {
 export function useCardDetails(userCardId: string | undefined) {
   return useQuery({
     enabled: !!userCardId,
-    queryKey: ["card", userCardId],
+    queryKey: ["card_v2", userCardId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_cards")
@@ -915,7 +1107,7 @@ export function useAddSignupBonus() {
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
       // Home's bonus list is portfolio-scoped and these hooks only know the
       // card id, so invalidate the whole portfolio prefix.
       qc.invalidateQueries({ queryKey: ["portfolio"] });
@@ -944,7 +1136,7 @@ export function useUpdateSignupBonus() {
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
       qc.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
@@ -975,7 +1167,7 @@ export function useAddSpendEntry() {
     },
     onSuccess: (_data, vars) => {
       track("spend_added", { linked_to_bonus: vars.bonusId != null });
-      qc.invalidateQueries({ queryKey: ["card", vars.userCardId] });
+      qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
       qc.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });

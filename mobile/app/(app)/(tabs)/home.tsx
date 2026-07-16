@@ -32,7 +32,7 @@ import { Text } from "@/components/ui/Text";
 import { useAuthSession } from "@/lib/auth";
 import { cn } from "@/lib/cn";
 import { confirmDestructive, notify } from "@/lib/dialog";
-import { benefitValue, fmtDate, usd } from "@/lib/format";
+import { benefitValue, fmtDate, formatProgramAmount, usd } from "@/lib/format";
 import {
   type SignupBonusProgress,
   useBenefits,
@@ -374,7 +374,7 @@ function BonusRow({ sb }: { sb: SignupBonusProgress }) {
         {sb.bonusValue != null && (
           <View className="shrink-0 px-3 py-1.5 rounded-full bg-primary-subtle">
             <Text variant="callout" className="text-primary-strong">
-              {usd(sb.bonusValue)}
+              {formatProgramAmount(sb.bonusValue, sb.unitType)}
             </Text>
           </View>
         )}

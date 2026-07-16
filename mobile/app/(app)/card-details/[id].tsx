@@ -20,18 +20,28 @@ import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { DetailRow } from "@/components/ui/DetailRow";
 import { Text } from "@/components/ui/Text";
+import { WalletEditModal } from "@/components/WalletEditModal";
 import { cn } from "@/lib/cn";
 import { confirmDestructive, notify } from "@/lib/dialog";
-import { fmtDate, localIsoDay, usd } from "@/lib/format";
+import {
+  fmtDate,
+  formatProgramAmount,
+  localIsoDay,
+  programUnitLabel,
+  usd,
+} from "@/lib/format";
 import {
   useAddSignupBonus,
   useAddSpendEntry,
   useCardDetails,
   useCurrentPortfolio,
+  useProgramWallets,
   useRemoveUserCard,
+  useSetWalletBalance,
   useUpdateSignupBonus,
   useUpdateUserCard,
 } from "@/lib/hooks";
+import type { ProgramUnitType } from "@/lib/types";
 import { colors, fonts } from "@/lib/theme";
 
 function formatOpenedOn(iso: string | null): string {
@@ -68,6 +78,9 @@ export default function CardDetailsScreen() {
   const addBonus = useAddSignupBonus();
   const updateBonus = useUpdateSignupBonus();
   const addSpend = useAddSpendEntry();
+  const { data: programWallets } = useProgramWallets(portfolioId);
+  const setBalance = useSetWalletBalance(portfolioId);
+  const [walletEditOpen, setWalletEditOpen] = useState(false);
 
   const [editing, setEditing] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -161,7 +174,11 @@ export default function CardDetailsScreen() {
       network: string | null;
       annual_fee: number;
       issuer: { name: string } | null;
-      rewards_program: { name: string; unit_type: string } | null;
+      rewards_program: {
+        id: string;
+        name: string;
+        unit_type: ProgramUnitType;
+      } | null;
       benefit_definitions: {
         id: string;
         name: string;
@@ -205,6 +222,14 @@ export default function CardDetailsScreen() {
   };
 
   const product = c.card_product;
+  const program = product?.rewards_program ?? null;
+  const programWallet = program
+    ? (programWallets?.wallets ?? []).find((w) => w.programId === program.id) ?? null
+    : null;
+  // null while the wallet query is in flight — editing must stay disabled,
+  // or "Add" would compute from a phantom zero and clobber the real balance.
+  const programBalance =
+    programWallets == null ? null : (programWallet?.balance ?? 0);
   // Local calendar days — toISOString() would shift the day in US timezones,
   // and fixed-ms subtraction breaks across DST; step by date parts instead.
   const todayIso = localIsoDay();
@@ -370,6 +395,40 @@ export default function CardDetailsScreen() {
           <DetailRow label="Opened on" value={formatOpenedOn(c.opened_on)} last />
         </View>
 
+        {program && (
+          <View className="bg-surface rounded-2xl border border-border">
+            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+              <Text variant="label" className="text-text-subtle uppercase">
+                Rewards
+              </Text>
+              {programBalance != null && (
+                <Pressable
+                  onPress={() => setWalletEditOpen(true)}
+                  className="flex-row items-center gap-1 px-2 py-1"
+                  hitSlop={4}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit points balance"
+                >
+                  <Pencil size={13} color={colors.primaryStrong} />
+                  <Text variant="label" className="text-primary-strong">
+                    Edit balance
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            <View className="flex-row items-center justify-between px-4 py-3">
+              <Text variant="callout" className="text-text-muted flex-1 pr-3">
+                {program.name}
+              </Text>
+              <Text variant="h2">
+                {programBalance == null
+                  ? "—"
+                  : formatProgramAmount(programBalance, program.unit_type)}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <View className="bg-surface rounded-2xl border border-border">
           <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
             <Text variant="label" className="text-text-subtle uppercase">
@@ -422,7 +481,7 @@ export default function CardDetailsScreen() {
               </View>
               <Text variant="caption" className="text-text-muted mt-2">
                 {bonus.bonus_value != null
-                  ? `Earns ${usd(Number(bonus.bonus_value))}`
+                  ? `Earns ${formatProgramAmount(Number(bonus.bonus_value), program?.unit_type)}`
                   : "Bonus value not set"}
                 {bonus.spend_deadline
                   ? ` · spend by ${fmtDate(bonus.spend_deadline)}`
@@ -657,12 +716,12 @@ export default function CardDetailsScreen() {
             />
 
             <Text variant="label" className="text-text-subtle uppercase mb-2">
-              Bonus value
+              Bonus value ({programUnitLabel(program?.unit_type)})
             </Text>
             <TextInput
               className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
               style={{ fontFamily: fonts.regular, fontSize: 16 }}
-              placeholder="$800"
+              placeholder={program?.unit_type === "cash_back" ? "$200" : "60,000"}
               placeholderTextColor={colors.textSubtle}
               value={bonusValueField}
               onChangeText={setBonusValueField}
@@ -787,6 +846,26 @@ export default function CardDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      {program && walletEditOpen && programBalance != null && (
+        <WalletEditModal
+          open
+          programName={program.name}
+          unitType={program.unit_type}
+          currentBalance={programBalance}
+          saving={setBalance.isPending}
+          onClose={() => setWalletEditOpen(false)}
+          onSave={(newBalance) =>
+            setBalance.mutate(
+              { programId: program.id, balance: newBalance },
+              {
+                onSuccess: () => setWalletEditOpen(false),
+                onError: (e) => notify("Save failed", (e as Error).message),
+              },
+            )
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
