@@ -31,5 +31,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // detectSessionInUrl is for OAuth flows in browsers; React Native doesn't
     // need it and leaving it true causes warnings.
     detectSessionInUrl: false,
+    // PKCE so email links (password recovery) carry a ?code= the app can
+    // exchange via exchangeCodeForSession after the deep link opens it.
+    // Plain email+password sign-in is unaffected.
+    flowType: "pkce",
   },
 });

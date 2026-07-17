@@ -62,12 +62,14 @@ export default function HomeScreen() {
     isLoading: loadingBenefits,
     isFetching: fetchingBenefits,
     refetch: refetchBenefits,
+    error: benefitsError,
   } = useBenefits(portfolioId);
   const {
     data: bonuses,
     isLoading: loadingBonuses,
     isFetching: fetchingBonuses,
     refetch: refetchBonuses,
+    error: bonusesError,
   } = useSignupBonuses(portfolioId);
   const ensure = useEnsureCycles(portfolioId);
 
@@ -151,9 +153,28 @@ export default function HomeScreen() {
 
   if (portfolioLoading || loadingBenefits || loadingBonuses) {
     return (
-      <SafeAreaView className="flex-1 bg-bg">
+      <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // A failed fetch must not render as "all caught up".
+  if (benefitsError || bonusesError) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+        <View className="flex-1 items-center justify-center px-6">
+          <Text variant="body" className="text-error-text text-center mb-4">
+            {((benefitsError ?? bonusesError) as Error).message}
+          </Text>
+          <Button
+            variant="primary"
+            label="Retry"
+            loading={refreshing}
+            onPress={onRefresh}
+          />
         </View>
       </SafeAreaView>
     );

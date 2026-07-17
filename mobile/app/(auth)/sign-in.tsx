@@ -4,6 +4,7 @@
 // show a "check your email" alert and bounce back to sign-in mode rather
 // than leaving the user in limbo.
 
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Image, Pressable, TextInput, View } from "react-native";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { signInWithEmail, signUpWithEmail } from "@/lib/auth";
 import { isOnboarded } from "@/lib/onboarding";
+import { supabase } from "@/lib/supabase";
 import { colors, fonts } from "@/lib/theme";
 
 type Mode = "sign-in" | "sign-up";
@@ -31,7 +33,10 @@ export default function SignInScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert("Auth error", error.message);
+      Alert.alert(
+        mode === "sign-in" ? "Sign in failed" : "Could not create account",
+        error.message,
+      );
       return;
     }
 
@@ -50,6 +55,30 @@ export default function SignInScreen() {
     const userId = data.session?.user.id ?? data.user?.id ?? null;
     const onboarded = userId ? await isOnboarded(userId) : true;
     router.replace((onboarded ? "/home" : "/cards") as never);
+  }
+
+  async function handleForgotPassword() {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      Alert.alert(
+        "Enter your email first",
+        "Type your account email above, then tap Forgot password again.",
+      );
+      return;
+    }
+    // createURL resolves to wanderfree://reset-password in standalone builds
+    // (and the exp:// equivalent inside Expo Go).
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+      redirectTo: Linking.createURL("reset-password"),
+    });
+    if (error) {
+      Alert.alert("Could not send reset email", error.message);
+      return;
+    }
+    Alert.alert(
+      "Check your email",
+      "We sent a password reset link. Open it on this device to set a new password.",
+    );
   }
 
   return (
@@ -107,6 +136,14 @@ export default function SignInScreen() {
               : "Already have an account? Sign in"}
           </Text>
         </Pressable>
+
+        {mode === "sign-in" && (
+          <Pressable onPress={handleForgotPassword} className="mt-3 items-center">
+            <Text variant="callout" className="text-text-muted">
+              Forgot password?
+            </Text>
+          </Pressable>
+        )}
 
         <Pressable
           onPress={() => router.push("/privacy" as never)}

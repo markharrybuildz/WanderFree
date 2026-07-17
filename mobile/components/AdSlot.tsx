@@ -18,14 +18,11 @@ export interface Ad {
 }
 
 function useAvailableAd(): Ad | null {
-  // Mock ad so the slot is visible while we design around it. Replace with
-  // a real source (house-ads table, ad network) later; returning null hides
-  // the slot entirely.
-  return {
-    id: "mock-summer-travel",
-    headline: "Earn 5x points on summer travel",
-    body: "Partner offer — book flights with your travel card and stack rewards on top of your credits.",
-  };
+  // No ad source is wired up yet, so the slot renders nothing (Home lays
+  // out as if it doesn't exist). This hook is the single seam for a real
+  // source later — a house-ads table, an ad network, an affiliate feed.
+  // During layout work, return a mock Ad here to see the slot.
+  return null;
 }
 
 export function AdSlot() {

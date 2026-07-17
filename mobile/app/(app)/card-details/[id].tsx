@@ -8,7 +8,9 @@ import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -627,8 +629,15 @@ export default function CardDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setEditing(false)}
       >
-        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
-          <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 items-center justify-center bg-overlay/40 px-6"
+        >
+          <ScrollView
+            className="bg-surface rounded-2xl w-full max-w-md max-h-[80%] grow-0"
+            contentContainerStyle={{ padding: 20 }}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text variant="h2" className="mb-4">Edit card details</Text>
 
             <Text variant="label" className="text-text-subtle uppercase mb-2">
@@ -685,8 +694,8 @@ export default function CardDetailsScreen() {
                 onPress={commitEdit}
               />
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -695,8 +704,15 @@ export default function CardDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setBonusModal(false)}
       >
-        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
-          <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 items-center justify-center bg-overlay/40 px-6"
+        >
+          <ScrollView
+            className="bg-surface rounded-2xl w-full max-w-md max-h-[80%] grow-0"
+            contentContainerStyle={{ padding: 20 }}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text variant="h2" className="mb-4">
               {bonusEditingId ? "Edit signup bonus" : "Add signup bonus"}
             </Text>
@@ -755,8 +771,8 @@ export default function CardDetailsScreen() {
                 onPress={commitBonus}
               />
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -765,8 +781,15 @@ export default function CardDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setSpendModal(false)}
       >
-        <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
-          <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          className="flex-1 items-center justify-center bg-overlay/40 px-6"
+        >
+          <ScrollView
+            className="bg-surface rounded-2xl w-full max-w-md max-h-[80%] grow-0"
+            contentContainerStyle={{ padding: 20 }}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text variant="h2" className="mb-1">
               Add spend
             </Text>
@@ -843,8 +866,8 @@ export default function CardDetailsScreen() {
                 onPress={commitSpend}
               />
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {program && walletEditOpen && programBalance != null && (
