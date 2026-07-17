@@ -67,12 +67,14 @@ export default function CardsScreen() {
     isLoading: loadingCards,
     isFetching: fetchingCards,
     refetch: refetchCards,
+    error: cardsError,
   } = useCardProducts();
   const {
     data: userCards,
     isLoading: loadingUserCards,
     isFetching: fetchingUserCards,
     refetch: refetchUserCards,
+    error: userCardsError,
   } = useUserCards(portfolioId);
   const add = useAddUserCard(portfolioId);
   const remove = useRemoveUserCard(portfolioId);
@@ -209,6 +211,20 @@ export default function CardsScreen() {
       <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // A failed fetch must not render as "no cards yet".
+  if (cardsError || userCardsError) {
+    return (
+      <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
+        <View className="flex-1 items-center justify-center px-6">
+          <Text variant="body" className="text-error-text text-center mb-4">
+            {((cardsError ?? userCardsError) as Error).message}
+          </Text>
+          <Button variant="primary" label="Retry" onPress={onRefresh} />
         </View>
       </SafeAreaView>
     );

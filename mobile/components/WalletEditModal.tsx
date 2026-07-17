@@ -9,7 +9,14 @@
 // A live preview shows the resulting balance before saving.
 
 import { useState } from "react";
-import { Modal, Pressable, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  TextInput,
+  View,
+} from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
@@ -72,7 +79,10 @@ export function WalletEditModal({
 
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 items-center justify-center bg-overlay/40 px-6">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1 items-center justify-center bg-overlay/40 px-6"
+      >
         <View className="bg-surface rounded-2xl p-5 w-full max-w-md">
           <Text variant="h2" className="mb-1">
             {programName}
@@ -150,7 +160,7 @@ export function WalletEditModal({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
