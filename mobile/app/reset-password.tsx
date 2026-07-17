@@ -10,8 +10,14 @@
 // path back to sign-in rather than a dead end.
 
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -28,19 +34,27 @@ export default function ResetPasswordScreen() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
+  // The PKCE code is one-time-use; Strict Mode runs effects twice in dev,
+  // and a second exchange would fail and strand the user on "invalid".
+  // Cache the promise so both runs await the same exchange.
+  const exchangePromise = useRef<ReturnType<
+    typeof supabase.auth.exchangeCodeForSession
+  > | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!code) {
-        if (mounted) setPhase("invalid");
-        return;
-      }
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (mounted) setPhase(error ? "invalid" : "ready");
-    })();
+    if (!code) {
+      setPhase("invalid");
+      return;
+    }
+    if (!exchangePromise.current) {
+      exchangePromise.current = supabase.auth.exchangeCodeForSession(code);
+    }
+    let active = true;
+    exchangePromise.current.then(({ error }) => {
+      if (active) setPhase(error ? "invalid" : "ready");
+    });
     return () => {
-      mounted = false;
+      active = false;
     };
   }, [code]);
 
@@ -99,7 +113,10 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <View className="flex-1 justify-center px-6">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        className="flex-1 justify-center px-6"
+      >
         <Text variant="h1" className="mb-2">
           Set a new password
         </Text>
@@ -138,7 +155,7 @@ export default function ResetPasswordScreen() {
           disabled={!password || !confirm}
           onPress={handleSave}
         />
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

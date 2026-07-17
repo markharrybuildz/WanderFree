@@ -224,7 +224,12 @@ export default function CardsScreen() {
           <Text variant="body" className="text-error-text text-center mb-4">
             {((cardsError ?? userCardsError) as Error).message}
           </Text>
-          <Button variant="primary" label="Retry" onPress={onRefresh} />
+          <Button
+            variant="primary"
+            label="Retry"
+            loading={refreshing}
+            onPress={onRefresh}
+          />
         </View>
       </SafeAreaView>
     );
