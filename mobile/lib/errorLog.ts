@@ -73,17 +73,28 @@ function describe(err: unknown): {
       stack: err.stack ? err.stack.slice(0, MAX_STACK) : null,
     };
   }
+  // The DB constraint requires message length >= 1, so every branch below
+  // falls back to a placeholder — an empty thrown string or an object that
+  // stringifies to "" would otherwise be rejected and silently dropped.
   if (typeof err === "string") {
-    return { message: err.slice(0, MAX_MESSAGE), error_type: null, stack: null };
+    return {
+      message: err.slice(0, MAX_MESSAGE) || "Unknown error",
+      error_type: null,
+      stack: null,
+    };
   }
   try {
     return {
-      message: JSON.stringify(err).slice(0, MAX_MESSAGE),
+      message: JSON.stringify(err).slice(0, MAX_MESSAGE) || "Unknown error",
       error_type: null,
       stack: null,
     };
   } catch {
-    return { message: String(err).slice(0, MAX_MESSAGE), error_type: null, stack: null };
+    return {
+      message: String(err).slice(0, MAX_MESSAGE) || "Unknown error",
+      error_type: null,
+      stack: null,
+    };
   }
 }
 
