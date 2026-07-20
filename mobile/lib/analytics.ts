@@ -42,8 +42,9 @@ type PendingEvent = {
 };
 
 // Non-crypto v4 is fine here: these are idempotency keys, not secrets, and
-// Hermes doesn't ship crypto.randomUUID.
-function uuidv4(): string {
+// Hermes doesn't ship crypto.randomUUID. Exported so the error log
+// (lib/errorLog.ts) can share the same session id and idempotency scheme.
+export function uuidv4(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -51,7 +52,9 @@ function uuidv4(): string {
   });
 }
 
-const SESSION_ID = uuidv4();
+/** Stable for the lifetime of the JS runtime. Shared with the error log so an
+ *  error row can be lined up against the events from the same session. */
+export const SESSION_ID = uuidv4();
 const APP_VERSION: string | null = Constants.expoConfig?.version ?? null;
 // The table's check constraint only knows these three.
 const PLATFORM: string | null = (["ios", "android", "web"] as string[]).includes(

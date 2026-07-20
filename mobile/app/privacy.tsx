@@ -85,6 +85,15 @@ export default function PrivacyScreen() {
           discarded.
         </Section>
 
+        <Section title="Error diagnostics">
+          When the app hits an unexpected error or crash, we record technical
+          diagnostics — the error message, where in the app it happened, and
+          your platform and app version — so we can find and fix bugs. These are
+          used only for debugging, are read only by us, and are collected even
+          if you turn off usage analytics above, because they&apos;re needed to
+          keep the app working.
+        </Section>
+
         <Section title="Where it lives">
           Data is stored with our backend provider (Supabase) and protected by
           per-user access rules so people can only read and write their own

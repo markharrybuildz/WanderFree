@@ -31,8 +31,14 @@ import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { track } from "@/lib/analytics";
+import { initErrorLog } from "@/lib/errorLog";
 import { persister, queryClient } from "@/lib/queryClient";
+
+// Install the global uncaught-error handler + flush loop once, at module load,
+// before any component renders.
+initErrorLog();
 
 /** Emits a screen_view event on every route change. Renders nothing.
  *  Tracks the route TEMPLATE ("/(app)/card-details/[id]"), not the resolved
@@ -96,14 +102,18 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <PersistQueryClientProvider
-          client={queryClient}
-          persistOptions={{ persister }}
-        >
-          <ScreenTracker />
-          <Stack screenOptions={{ headerShown: false }} />
-          <StatusBar style="auto" />
-        </PersistQueryClientProvider>
+        {/* Inside SafeAreaProvider so the fallback can use safe-area insets;
+            wraps the app so any render error below shows the fallback. */}
+        <ErrorBoundary>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{ persister }}
+          >
+            <ScreenTracker />
+            <Stack screenOptions={{ headerShown: false }} />
+            <StatusBar style="auto" />
+          </PersistQueryClientProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
