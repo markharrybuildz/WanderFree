@@ -13,9 +13,32 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
+
+import { logError } from "./errorLog";
 
 export const queryClient = new QueryClient({
+  // Cache-level onError fires for every failed query/mutation across the app,
+  // so we log data-layer failures in one place instead of in each hook's
+  // onError. Screens still handle/display errors themselves; this is the
+  // out-of-band diagnostics tap. `retry` above means this fires only after
+  // retries are exhausted.
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      logError(error, {
+        source: "query",
+        context: { queryKey: query.queryKey },
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _vars, _ctx, mutation) => {
+      logError(error, {
+        source: "mutation",
+        context: { mutationKey: mutation.options.mutationKey ?? null },
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       // Catalog data (benefits, cards) only changes quarterly when the
