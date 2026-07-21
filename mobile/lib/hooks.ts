@@ -26,6 +26,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { track } from "./analytics";
 import { markOnboarded } from "./onboarding";
+import { queryClient } from "./queryClient";
 import { supabase } from "./supabase";
 import type {
   CardProduct,
@@ -1035,52 +1036,68 @@ export function useEnsureCycles(portfolioId: string | undefined) {
  * flow (custom amount, notes, date) belongs in a dedicated screen — see the
  * TODO at the call site.
  */
+/** The raw redeem / un-redeem write. Extracted from the mutation so an Undo
+ *  action can drive it directly — the snackbar's Undo outlives the benefit
+ *  screen (which navigates away on redeem), so it can't rely on that screen's
+ *  mutation instance. Pair with `invalidateBenefits` to refresh the cache. */
+export async function applyBenefitRedeemed(
+  benefit: UserVisibleBenefit,
+  redeem: boolean,
+): Promise<void> {
+  if (!benefit.cycle) {
+    throw new Error("No active cycle for this benefit yet.");
+  }
+  if (redeem) {
+    if (benefit.cycle.allotted_value == null) {
+      throw new Error("Cycle has no allotted value.");
+    }
+    const remaining = Math.max(
+      Number(benefit.cycle.allotted_value) - benefit.redeemed_amount,
+      0,
+    );
+    if (remaining <= 0) return;
+    const { error } = await supabase.from("benefit_redemptions").insert({
+      benefit_cycle_id: benefit.cycle.id,
+      user_card_id: benefit.user_card_id,
+      benefit_definition_id: benefit.benefit_definition_id,
+      amount: remaining,
+      redeemed_on: new Date().toISOString().slice(0, 10),
+    });
+    if (error) throw error;
+  } else {
+    // Delete the most recent redemption on this cycle.
+    const { data, error: selErr } = await supabase
+      .from("benefit_redemptions")
+      .select("id")
+      .eq("benefit_cycle_id", benefit.cycle.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!data) return;
+    const { error: delErr } = await supabase
+      .from("benefit_redemptions")
+      .delete()
+      .eq("id", (data as { id: string }).id);
+    if (delErr) throw delErr;
+  }
+}
+
+/** Refresh a portfolio's benefits after a redeem/un-redeem outside the hook
+ *  (e.g. from an Undo). Uses the singleton client so it works post-navigation. */
+export function invalidateBenefits(portfolioId: string | undefined) {
+  return queryClient.invalidateQueries({
+    queryKey: ["portfolio", portfolioId, "benefits"],
+  });
+}
+
 export function useToggleBenefitRedeemed(portfolioId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       benefit: UserVisibleBenefit;
       redeem: boolean;
-    }) => {
-      const { benefit, redeem } = args;
-      if (!benefit.cycle) {
-        throw new Error("No active cycle for this benefit yet.");
-      }
-      if (redeem) {
-        if (benefit.cycle.allotted_value == null) {
-          throw new Error("Cycle has no allotted value.");
-        }
-        const remaining = Math.max(
-          Number(benefit.cycle.allotted_value) - benefit.redeemed_amount,
-          0,
-        );
-        if (remaining <= 0) return;
-        const { error } = await supabase.from("benefit_redemptions").insert({
-          benefit_cycle_id: benefit.cycle.id,
-          user_card_id: benefit.user_card_id,
-          benefit_definition_id: benefit.benefit_definition_id,
-          amount: remaining,
-          redeemed_on: new Date().toISOString().slice(0, 10),
-        });
-        if (error) throw error;
-      } else {
-        // Undo: delete the most recent redemption on this cycle.
-        const { data, error: selErr } = await supabase
-          .from("benefit_redemptions")
-          .select("id")
-          .eq("benefit_cycle_id", benefit.cycle.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (selErr) throw selErr;
-        if (!data) return;
-        const { error: delErr } = await supabase
-          .from("benefit_redemptions")
-          .delete()
-          .eq("id", (data as { id: string }).id);
-        if (delErr) throw delErr;
-      }
-    },
+    }) => applyBenefitRedeemed(args.benefit, args.redeem),
     onSuccess: (_data, vars) => {
       track("benefit_redeemed", { redeem: vars.redeem }, portfolioId);
     },

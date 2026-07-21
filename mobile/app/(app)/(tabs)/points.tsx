@@ -29,6 +29,7 @@ import {
   useProgramWallets,
   useSetWalletBalance,
 } from "@/lib/hooks";
+import { snackbar } from "@/lib/snackbar";
 import { colors } from "@/lib/theme";
 
 export default function PointsScreen() {
@@ -188,7 +189,12 @@ export default function PointsScreen() {
             setBalance.mutate(
               { programId: editing.programId, balance: newBalance },
               {
-                onSuccess: () => setEditing(null),
+                onSuccess: () => {
+                  setEditing(null);
+                  snackbar.success("Balance updated");
+                },
+                // Modal stays open so the user can retry their entry; a root
+                // snackbar can't overlay it, so keep the in-modal Alert.
                 onError: (e) => notify("Save failed", (e as Error).message),
               },
             )

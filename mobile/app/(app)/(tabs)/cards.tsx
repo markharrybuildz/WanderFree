@@ -29,7 +29,7 @@ import { CardArtThumbnail } from "@/components/CardArtThumbnail";
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { Text } from "@/components/ui/Text";
-import { confirmDestructive, notify } from "@/lib/dialog";
+import { confirmDestructive } from "@/lib/dialog";
 import { localIsoDay, programUnitLabel } from "@/lib/format";
 import {
   useAddUserCard,
@@ -39,6 +39,7 @@ import {
   useUserCards,
 } from "@/lib/hooks";
 import { isOnboarded, markOnboarded } from "@/lib/onboarding";
+import { snackbar } from "@/lib/snackbar";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts } from "@/lib/theme";
 import type { CardProduct } from "@/lib/types";
@@ -87,6 +88,9 @@ export default function CardsScreen() {
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
+  // Inline error shown inside the add-card modal (validation + add failure).
+  // A root snackbar can't overlay the open modal, so feedback lives inline.
+  const [addError, setAddError] = useState<string | null>(null);
 
   // Tab screens stay mounted, so an open keyboard would otherwise survive a
   // tab switch and greet the user on their way back in.
@@ -158,6 +162,7 @@ export default function CardsScreen() {
     setBonusSpend("");
     setBonusValue("");
     setBonusDeadline(null);
+    setAddError(null);
     setAddTarget(card);
   }
 
@@ -175,13 +180,13 @@ export default function CardsScreen() {
     let bonus = null;
     const requiredSpend = parseAmount(bonusSpend);
     if (bonusSpend.trim() && requiredSpend == null) {
-      notify("Invalid amount", "Required spend must be a positive number.");
+      setAddError("Required spend must be a positive number.");
       return;
     }
     if (requiredSpend != null) {
       const value = parseAmount(bonusValue);
       if (bonusValue.trim() && value == null) {
-        notify("Invalid amount", "Bonus value must be a positive number.");
+        setAddError("Bonus value must be a positive number.");
         return;
       }
       bonus = {
@@ -190,20 +195,34 @@ export default function CardsScreen() {
         deadline: bonusDeadline,
       };
     } else if (bonusValue.trim() || bonusDeadline) {
-      notify(
-        "Missing required spend",
-        "Enter the required spend to track this signup bonus.",
-      );
+      setAddError("Enter the required spend to track this signup bonus.");
       return;
     }
 
+    setAddError(null);
     add.mutate(
       { cardProductId: addTarget.id, openedOn, bonus },
       {
-        onSuccess: () => setAddTarget(null),
-        onError: (e) => notify("Add failed", (e as Error).message),
+        onSuccess: () => {
+          setAddTarget(null);
+          snackbar.success("Card added");
+        },
+        // Modal is still open on failure, so show the error inline.
+        onError: (e) => setAddError((e as Error).message),
       },
     );
+  }
+
+  // Removal is confirmed first (it cascades to cycles + redemptions), then
+  // reported via snackbar. Errors offer a Retry.
+  function removeCard(userCardId: string) {
+    remove.mutate(userCardId, {
+      onSuccess: () => snackbar.success("Card removed"),
+      onError: (e) =>
+        snackbar.error((e as Error).message || "Couldn't remove card", {
+          action: { label: "Retry", onPress: () => removeCard(userCardId) },
+        }),
+    });
   }
 
   if (portfolioLoading || loadingCards || loadingUserCards) {
@@ -389,11 +408,7 @@ export default function CardsScreen() {
                       message:
                         "Your benefit cycles and redemption history for this card will be removed.",
                       confirmLabel: "Remove",
-                      onConfirm: () =>
-                        remove.mutate(heldCard.id, {
-                          onError: (e) =>
-                            notify("Remove failed", (e as Error).message),
-                        }),
+                      onConfirm: () => removeCard(heldCard.id),
                     })
                   }
                   className="w-10 h-10 rounded-full bg-success items-center justify-center"
@@ -478,7 +493,10 @@ export default function CardsScreen() {
                   placeholder="$4,000"
                   placeholderTextColor={colors.textSubtle}
                   value={bonusSpend}
-                  onChangeText={setBonusSpend}
+                  onChangeText={(t) => {
+                    setBonusSpend(t);
+                    if (addError) setAddError(null);
+                  }}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -496,7 +514,10 @@ export default function CardsScreen() {
                   }
                   placeholderTextColor={colors.textSubtle}
                   value={bonusValue}
-                  onChangeText={setBonusValue}
+                  onChangeText={(t) => {
+                    setBonusValue(t);
+                    if (addError) setAddError(null);
+                  }}
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -512,6 +533,11 @@ export default function CardsScreen() {
               className="mb-4"
               accessibilityLabel="Spend deadline date"
             />
+            {addError ? (
+              <Text variant="caption" className="text-error-text mb-3">
+                {addError}
+              </Text>
+            ) : null}
             <View className="flex-row gap-3">
               <Button
                 variant="ghost"

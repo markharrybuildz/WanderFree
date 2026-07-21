@@ -21,7 +21,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
-import { notify } from "@/lib/dialog";
 import { formatProgramAmount, programUnitLabel } from "@/lib/format";
 import { colors, fonts } from "@/lib/theme";
 import type { ProgramUnitType } from "@/lib/types";
@@ -65,10 +64,9 @@ export function WalletEditModal({
           : Math.max(0, currentBalance - parsed);
 
   function handleSave() {
-    if (nextBalance == null) {
-      notify("Invalid amount", "Enter a number.");
-      return;
-    }
+    // Save is disabled while the amount is unparseable, so this is just a
+    // type guard — the parent owns the result feedback (snackbar on close).
+    if (nextBalance == null) return;
     onSave(nextBalance);
   }
 

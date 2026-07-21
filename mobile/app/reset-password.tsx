@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { Text } from "@/components/ui/Text";
-import { notify } from "@/lib/dialog";
+import { snackbar } from "@/lib/snackbar";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts } from "@/lib/theme";
 
@@ -34,6 +34,9 @@ export default function ResetPasswordScreen() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
+  // Inline form error (validation + save failure). The Save button is always
+  // on screen, so an error here is more useful than a transient snackbar.
+  const [error, setError] = useState<string | null>(null);
   // The PKCE code is one-time-use; Strict Mode runs effects twice in dev,
   // and a second exchange would fail and strand the user on "invalid".
   // Cache the promise so both runs await the same exchange.
@@ -60,21 +63,24 @@ export default function ResetPasswordScreen() {
 
   async function handleSave() {
     if (password.length < 8) {
-      notify("Password too short", "Use at least 8 characters.");
+      setError("Use at least 8 characters.");
       return;
     }
     if (password !== confirm) {
-      notify("Passwords don't match", "Re-enter the same password in both fields.");
+      setError("Passwords don't match — re-enter the same password in both fields.");
       return;
     }
+    setError(null);
     setSaving(true);
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error: saveError } = await supabase.auth.updateUser({ password });
     setSaving(false);
-    if (error) {
-      notify("Could not update password", error.message);
+    if (saveError) {
+      setError(saveError.message);
       return;
     }
-    // The recovery exchange already signed them in — straight to the app.
+    // The recovery exchange already signed them in — straight to the app. The
+    // success snackbar lives at the root, so it rides along to the home screen.
+    snackbar.success("Password updated");
     router.replace("/home" as never);
   }
 
@@ -132,7 +138,10 @@ export default function ResetPasswordScreen() {
           secureTextEntry
           autoComplete="new-password"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(t) => {
+            setPassword(t);
+            if (error) setError(null);
+          }}
           autoFocus
         />
         <TextInput
@@ -143,8 +152,17 @@ export default function ResetPasswordScreen() {
           secureTextEntry
           autoComplete="new-password"
           value={confirm}
-          onChangeText={setConfirm}
+          onChangeText={(t) => {
+            setConfirm(t);
+            if (error) setError(null);
+          }}
         />
+
+        {error ? (
+          <Text variant="caption" className="text-error-text mb-4 -mt-3">
+            {error}
+          </Text>
+        ) : null}
 
         <Button
           variant="primary"

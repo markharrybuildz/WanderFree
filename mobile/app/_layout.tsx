@@ -32,6 +32,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { SnackbarHost } from "@/components/ui/Snackbar";
 import { track } from "@/lib/analytics";
 import { initErrorLog } from "@/lib/errorLog";
 import { persister, queryClient } from "@/lib/queryClient";
@@ -112,6 +113,10 @@ export default function RootLayout() {
             <ScreenTracker />
             <Stack screenOptions={{ headerShown: false }} />
             <StatusBar style="auto" />
+            {/* Above the navigator so it floats over screen content. Note:
+                on native it won't overlay an open RN <Modal> — fire result
+                snackbars after a modal closes. */}
+            <SnackbarHost />
           </PersistQueryClientProvider>
         </ErrorBoundary>
       </SafeAreaProvider>
