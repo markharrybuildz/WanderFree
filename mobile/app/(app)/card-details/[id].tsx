@@ -43,8 +43,9 @@ import {
   useUpdateSignupBonus,
   useUpdateUserCard,
 } from "@/lib/hooks";
-import type { ProgramUnitType } from "@/lib/types";
+import { snackbar, snackbarAfterModalClose } from "@/lib/snackbar";
 import { colors, fonts } from "@/lib/theme";
+import type { ProgramUnitType } from "@/lib/types";
 
 function formatOpenedOn(iso: string | null): string {
   if (!iso) return "Not set";
@@ -88,6 +89,9 @@ export default function CardDetailsScreen() {
   const [nickname, setNickname] = useState("");
   const [lastFour, setLastFour] = useState("");
   const [openedOn, setOpenedOn] = useState<string | null>(null);
+  // Inline errors shown inside the open modal (validation + save failure) —
+  // a root snackbar can't overlay a modal, so in-modal feedback lives inline.
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Signup-bonus add/edit modal state. `bonusEditingId` is null when adding.
   const [bonusModal, setBonusModal] = useState(false);
@@ -95,21 +99,25 @@ export default function CardDetailsScreen() {
   const [bonusSpendField, setBonusSpendField] = useState("");
   const [bonusValueField, setBonusValueField] = useState("");
   const [bonusDeadlineField, setBonusDeadlineField] = useState<string | null>(null);
+  const [bonusError, setBonusError] = useState<string | null>(null);
 
   // Add-spend modal state.
   const [spendModal, setSpendModal] = useState(false);
   const [spendAmount, setSpendAmount] = useState("");
   const [spendDate, setSpendDate] = useState("");
+  const [spendError, setSpendError] = useState<string | null>(null);
 
   function startEdit() {
     setNickname(card?.nickname ?? "");
     setLastFour(card?.last_four ?? "");
     setOpenedOn(card?.opened_on ?? null);
+    setEditError(null);
     setEditing(true);
   }
 
   function commitEdit() {
     if (!card) return;
+    setEditError(null);
     update.mutate(
       {
         userCardId: card.id,
@@ -120,10 +128,27 @@ export default function CardDetailsScreen() {
         },
       },
       {
-        onSuccess: () => setEditing(false),
-        onError: (e) => notify("Update failed", (e as Error).message),
+        onSuccess: () => {
+          setEditing(false);
+          snackbarAfterModalClose(() => snackbar.success("Changes saved"));
+        },
+        onError: (e) => setEditError((e as Error).message),
       },
     );
+  }
+
+  function doRemove(userCardId: string) {
+    remove.mutate(userCardId, {
+      onSuccess: () => {
+        // Back to the list; the snackbar rides along on the root host.
+        router.back();
+        snackbar.success("Card removed");
+      },
+      onError: (e) =>
+        snackbar.error((e as Error).message || "Couldn't remove card", {
+          action: { label: "Retry", onPress: () => doRemove(userCardId) },
+        }),
+    });
   }
 
   function handleRemove() {
@@ -133,11 +158,7 @@ export default function CardDetailsScreen() {
       message:
         "Your benefit cycles and redemption history for this card will be removed.",
       confirmLabel: "Remove",
-      onConfirm: () =>
-        remove.mutate(card.id, {
-          onSuccess: () => router.back(),
-          onError: (e) => notify("Remove failed", (e as Error).message),
-        }),
+      onConfirm: () => doRemove(card.id),
     });
   }
 
@@ -275,6 +296,7 @@ export default function CardDetailsScreen() {
     setBonusSpendField(bonus ? String(bonus.required_spend) : "");
     setBonusValueField(bonus?.bonus_value != null ? String(bonus.bonus_value) : "");
     setBonusDeadlineField(bonus?.spend_deadline ?? null);
+    setBonusError(null);
     setBonusModal(true);
   }
 
@@ -282,18 +304,22 @@ export default function CardDetailsScreen() {
     if (!card) return;
     const requiredSpend = parseAmount(bonusSpendField);
     if (requiredSpend == null) {
-      notify("Invalid amount", "Required spend must be a positive number.");
+      setBonusError("Required spend must be a positive number.");
       return;
     }
     const value = parseAmount(bonusValueField);
     if (bonusValueField.trim() && value == null) {
-      notify("Invalid amount", "Bonus value must be a positive number.");
+      setBonusError("Bonus value must be a positive number.");
       return;
     }
+    setBonusError(null);
     const deadline = bonusDeadlineField;
     const onDone = {
-      onSuccess: () => setBonusModal(false),
-      onError: (e: Error) => notify("Save failed", e.message),
+      onSuccess: () => {
+        setBonusModal(false);
+        snackbarAfterModalClose(() => snackbar.success("Bonus saved"));
+      },
+      onError: (e: Error) => setBonusError(e.message),
     };
     if (bonusEditingId) {
       updateBonus.mutate(
@@ -324,6 +350,7 @@ export default function CardDetailsScreen() {
   function startAddSpend() {
     setSpendAmount("");
     setSpendDate(todayIso);
+    setSpendError(null);
     setSpendModal(true);
   }
 
@@ -331,9 +358,10 @@ export default function CardDetailsScreen() {
     if (!card) return;
     const amount = parseAmount(spendAmount);
     if (amount == null) {
-      notify("Invalid amount", "Enter a positive dollar amount.");
+      setSpendError("Enter a positive dollar amount.");
       return;
     }
+    setSpendError(null);
     const date = spendDate || todayIso;
     addSpend.mutate(
       {
@@ -346,8 +374,11 @@ export default function CardDetailsScreen() {
         bonusId: bonus ? bonus.id : null,
       },
       {
-        onSuccess: () => setSpendModal(false),
-        onError: (e) => notify("Save failed", (e as Error).message),
+        onSuccess: () => {
+          setSpendModal(false);
+          snackbarAfterModalClose(() => snackbar.success("Spend added"));
+        },
+        onError: (e) => setSpendError((e as Error).message),
       },
     );
   }
@@ -649,7 +680,10 @@ export default function CardDetailsScreen() {
               placeholder="e.g. Travel card"
               placeholderTextColor={colors.textSubtle}
               value={nickname}
-              onChangeText={setNickname}
+              onChangeText={(t) => {
+                setNickname(t);
+                if (editError) setEditError(null);
+              }}
             />
 
             <Text variant="label" className="text-text-subtle uppercase mb-2">
@@ -661,7 +695,10 @@ export default function CardDetailsScreen() {
               placeholder="1234"
               placeholderTextColor={colors.textSubtle}
               value={lastFour}
-              onChangeText={setLastFour}
+              onChangeText={(t) => {
+                setLastFour(t);
+                if (editError) setEditError(null);
+              }}
               keyboardType="number-pad"
               maxLength={4}
             />
@@ -679,6 +716,11 @@ export default function CardDetailsScreen() {
               accessibilityLabel="Opened on date"
             />
 
+            {editError ? (
+              <Text variant="caption" className="text-error-text mb-3">
+                {editError}
+              </Text>
+            ) : null}
             <View className="flex-row gap-3">
               <Button
                 variant="ghost"
@@ -726,7 +768,10 @@ export default function CardDetailsScreen() {
               placeholder="$4,000"
               placeholderTextColor={colors.textSubtle}
               value={bonusSpendField}
-              onChangeText={setBonusSpendField}
+              onChangeText={(t) => {
+                setBonusSpendField(t);
+                if (bonusError) setBonusError(null);
+              }}
               keyboardType="decimal-pad"
               autoFocus
             />
@@ -740,7 +785,10 @@ export default function CardDetailsScreen() {
               placeholder={program?.unit_type === "cash_back" ? "$200" : "60,000"}
               placeholderTextColor={colors.textSubtle}
               value={bonusValueField}
-              onChangeText={setBonusValueField}
+              onChangeText={(t) => {
+                setBonusValueField(t);
+                if (bonusError) setBonusError(null);
+              }}
               keyboardType="decimal-pad"
             />
 
@@ -756,6 +804,11 @@ export default function CardDetailsScreen() {
               accessibilityLabel="Spend deadline date"
             />
 
+            {bonusError ? (
+              <Text variant="caption" className="text-error-text mb-3">
+                {bonusError}
+              </Text>
+            ) : null}
             <View className="flex-row gap-3">
               <Button
                 variant="ghost"
@@ -808,7 +861,10 @@ export default function CardDetailsScreen() {
               placeholder="$125.40"
               placeholderTextColor={colors.textSubtle}
               value={spendAmount}
-              onChangeText={setSpendAmount}
+              onChangeText={(t) => {
+                setSpendAmount(t);
+                if (spendError) setSpendError(null);
+              }}
               keyboardType="decimal-pad"
               autoFocus
             />
@@ -851,6 +907,11 @@ export default function CardDetailsScreen() {
               accessibilityLabel="Spend date"
             />
 
+            {spendError ? (
+              <Text variant="caption" className="text-error-text mb-3">
+                {spendError}
+              </Text>
+            ) : null}
             <View className="flex-row gap-3">
               <Button
                 variant="ghost"
@@ -882,7 +943,11 @@ export default function CardDetailsScreen() {
             setBalance.mutate(
               { programId: program.id, balance: newBalance },
               {
-                onSuccess: () => setWalletEditOpen(false),
+                onSuccess: () => {
+                  setWalletEditOpen(false);
+                  snackbarAfterModalClose(() => snackbar.success("Balance updated"));
+                },
+                // Modal stays open on failure; keep the in-modal Alert.
                 onError: (e) => notify("Save failed", (e as Error).message),
               },
             )

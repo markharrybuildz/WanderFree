@@ -26,6 +26,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { track } from "./analytics";
 import { markOnboarded } from "./onboarding";
+import { queryClient } from "./queryClient";
 import { supabase } from "./supabase";
 import type {
   CardProduct,
@@ -39,6 +40,12 @@ import type {
 } from "./types";
 
 const SELECTED_PORTFOLIO_KEY = "wanderfree-selected-portfolio-id";
+
+/** Single source of truth for the benefits query key so the fetch and every
+ *  invalidation (including out-of-hook ones like invalidateBenefits) stay in
+ *  lockstep — a drifting literal would silently break cache invalidation. */
+export const benefitsQueryKey = (portfolioId: string | undefined) =>
+  ["portfolio", portfolioId, "benefits"] as const;
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -248,7 +255,7 @@ export function useWalletAccounts(portfolioId: string | undefined) {
 export function useBenefits(portfolioId: string | undefined) {
   return useQuery({
     enabled: !!portfolioId,
-    queryKey: ["portfolio", portfolioId, "benefits"],
+    queryKey: benefitsQueryKey(portfolioId),
     queryFn: async (): Promise<UserVisibleBenefit[]> => {
       // Pull the user's active cards together with each card_product's
       // benefit_definitions and any open benefit cycles + redemptions.
@@ -805,7 +812,7 @@ export function useAddUserCard(portfolioId: string | undefined) {
       if (user) await markOnboarded(user.id);
       track("card_added", {}, portfolioId);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"] });
     },
   });
@@ -835,7 +842,7 @@ export function useUpdateUserCard(portfolioId: string | undefined) {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       // Points-tab rows display card nicknames.
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
       qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
@@ -900,7 +907,7 @@ export function useRemoveUserCard(portfolioId: string | undefined) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
     },
   });
 }
@@ -1020,7 +1027,7 @@ export function useEnsureCycles(portfolioId: string | undefined) {
     },
     onSuccess: (result) => {
       if (result && (result.created > 0 || result.expired > 0)) {
-        qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+        qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       }
     },
   });
@@ -1035,57 +1042,73 @@ export function useEnsureCycles(portfolioId: string | undefined) {
  * flow (custom amount, notes, date) belongs in a dedicated screen — see the
  * TODO at the call site.
  */
+/** The raw redeem / un-redeem write. Extracted from the mutation so an Undo
+ *  action can drive it directly — the snackbar's Undo outlives the benefit
+ *  screen (which navigates away on redeem), so it can't rely on that screen's
+ *  mutation instance. Pair with `invalidateBenefits` to refresh the cache. */
+export async function applyBenefitRedeemed(
+  benefit: UserVisibleBenefit,
+  redeem: boolean,
+): Promise<void> {
+  if (!benefit.cycle) {
+    throw new Error("No active cycle for this benefit yet.");
+  }
+  if (redeem) {
+    if (benefit.cycle.allotted_value == null) {
+      throw new Error("Cycle has no allotted value.");
+    }
+    const remaining = Math.max(
+      Number(benefit.cycle.allotted_value) - benefit.redeemed_amount,
+      0,
+    );
+    if (remaining <= 0) return;
+    const { error } = await supabase.from("benefit_redemptions").insert({
+      benefit_cycle_id: benefit.cycle.id,
+      user_card_id: benefit.user_card_id,
+      benefit_definition_id: benefit.benefit_definition_id,
+      amount: remaining,
+      redeemed_on: new Date().toISOString().slice(0, 10),
+    });
+    if (error) throw error;
+  } else {
+    // Delete the most recent redemption on this cycle.
+    const { data, error: selErr } = await supabase
+      .from("benefit_redemptions")
+      .select("id")
+      .eq("benefit_cycle_id", benefit.cycle.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!data) return;
+    const { error: delErr } = await supabase
+      .from("benefit_redemptions")
+      .delete()
+      .eq("id", (data as { id: string }).id);
+    if (delErr) throw delErr;
+  }
+}
+
+/** Refresh a portfolio's benefits after a redeem/un-redeem outside the hook
+ *  (e.g. from an Undo). Uses the singleton client so it works post-navigation. */
+export function invalidateBenefits(portfolioId: string | undefined) {
+  return queryClient.invalidateQueries({
+    queryKey: benefitsQueryKey(portfolioId),
+  });
+}
+
 export function useToggleBenefitRedeemed(portfolioId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       benefit: UserVisibleBenefit;
       redeem: boolean;
-    }) => {
-      const { benefit, redeem } = args;
-      if (!benefit.cycle) {
-        throw new Error("No active cycle for this benefit yet.");
-      }
-      if (redeem) {
-        if (benefit.cycle.allotted_value == null) {
-          throw new Error("Cycle has no allotted value.");
-        }
-        const remaining = Math.max(
-          Number(benefit.cycle.allotted_value) - benefit.redeemed_amount,
-          0,
-        );
-        if (remaining <= 0) return;
-        const { error } = await supabase.from("benefit_redemptions").insert({
-          benefit_cycle_id: benefit.cycle.id,
-          user_card_id: benefit.user_card_id,
-          benefit_definition_id: benefit.benefit_definition_id,
-          amount: remaining,
-          redeemed_on: new Date().toISOString().slice(0, 10),
-        });
-        if (error) throw error;
-      } else {
-        // Undo: delete the most recent redemption on this cycle.
-        const { data, error: selErr } = await supabase
-          .from("benefit_redemptions")
-          .select("id")
-          .eq("benefit_cycle_id", benefit.cycle.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (selErr) throw selErr;
-        if (!data) return;
-        const { error: delErr } = await supabase
-          .from("benefit_redemptions")
-          .delete()
-          .eq("id", (data as { id: string }).id);
-        if (delErr) throw delErr;
-      }
-    },
+    }) => applyBenefitRedeemed(args.benefit, args.redeem),
     onSuccess: (_data, vars) => {
       track("benefit_redeemed", { redeem: vars.redeem }, portfolioId);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
     },
   });
 }

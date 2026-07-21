@@ -11,7 +11,6 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Button } from "@/components/ui/Button";
 import { DetailRow } from "@/components/ui/DetailRow";
 import { Text } from "@/components/ui/Text";
-import { notify } from "@/lib/dialog";
 import {
   benefitValueLabel,
   fmtDate,
@@ -21,10 +20,13 @@ import {
   usd,
 } from "@/lib/format";
 import {
+  applyBenefitRedeemed,
+  invalidateBenefits,
   useBenefits,
   useCurrentPortfolio,
   useToggleBenefitRedeemed,
 } from "@/lib/hooks";
+import { snackbar } from "@/lib/snackbar";
 import { colors } from "@/lib/theme";
 
 export default function BenefitDetailScreen() {
@@ -62,6 +64,43 @@ export default function BenefitDetailScreen() {
           <Button variant="primary" label="Back" onPress={() => router.back()} />
         </View>
       </SafeAreaView>
+    );
+  }
+
+  function runToggle(redeeming: boolean) {
+    if (!b) return;
+    const benefit = b;
+    toggle.mutate(
+      { benefit, redeem: redeeming },
+      {
+        // Marking as used completes the task — take the user back to the list.
+        // Un-redeeming stays put so they can see the restored state.
+        onSuccess: () => {
+          if (redeeming) {
+            router.back();
+            // The Undo outlives this screen, so it drives the write directly
+            // rather than through this (now-unmounting) screen's mutation.
+            snackbar.success("Marked as used", {
+              action: {
+                label: "Undo",
+                onPress: () => {
+                  applyBenefitRedeemed(benefit, false)
+                    .then(() => invalidateBenefits(portfolioId))
+                    .catch((e) =>
+                      snackbar.error((e as Error).message || "Couldn't undo"),
+                    );
+                },
+              },
+            });
+          } else {
+            snackbar.success("Marked as available");
+          }
+        },
+        onError: (e) =>
+          snackbar.error((e as Error).message || "Update failed", {
+            action: { label: "Retry", onPress: () => runToggle(redeeming) },
+          }),
+      },
     );
   }
 
@@ -161,21 +200,8 @@ export default function BenefitDetailScreen() {
             size="lg"
             fullWidth
             label={b.fully_redeemed ? "Mark as available" : "Mark as used"}
-            onPress={() => {
-              const redeeming = !b.fully_redeemed;
-              toggle.mutate(
-                { benefit: b, redeem: redeeming },
-                {
-                  // Marking as used completes the task — take the user back
-                  // to the list. Un-redeeming stays put so they can see the
-                  // restored state.
-                  onSuccess: () => {
-                    if (redeeming) router.back();
-                  },
-                  onError: (e) => notify("Update failed", (e as Error).message),
-                },
-              );
-            }}
+            loading={toggle.isPending}
+            onPress={() => runToggle(!b.fully_redeemed)}
           />
         )}
       </ScrollView>

@@ -44,6 +44,7 @@ import {
   useSignupBonuses,
   useUserPortfolios,
 } from "@/lib/hooks";
+import { snackbar, snackbarAfterModalClose } from "@/lib/snackbar";
 import { colors, fonts } from "@/lib/theme";
 import type { Portfolio, UserVisibleBenefit } from "@/lib/types";
 
@@ -121,7 +122,9 @@ export default function HomeScreen() {
       onSuccess: () => {
         setCreating(false);
         setNewName("");
+        snackbarAfterModalClose(() => snackbar.success("Profile created"));
       },
+      // Create modal stays open on failure, so keep the in-modal Alert.
       onError: (e) => notify("Could not create profile", (e as Error).message),
     });
   }
