@@ -41,6 +41,12 @@ import type {
 
 const SELECTED_PORTFOLIO_KEY = "wanderfree-selected-portfolio-id";
 
+/** Single source of truth for the benefits query key so the fetch and every
+ *  invalidation (including out-of-hook ones like invalidateBenefits) stay in
+ *  lockstep — a drifting literal would silently break cache invalidation. */
+export const benefitsQueryKey = (portfolioId: string | undefined) =>
+  ["portfolio", portfolioId, "benefits"] as const;
+
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Compute the anniversary-basis period that contains `today`, anchored at
@@ -249,7 +255,7 @@ export function useWalletAccounts(portfolioId: string | undefined) {
 export function useBenefits(portfolioId: string | undefined) {
   return useQuery({
     enabled: !!portfolioId,
-    queryKey: ["portfolio", portfolioId, "benefits"],
+    queryKey: benefitsQueryKey(portfolioId),
     queryFn: async (): Promise<UserVisibleBenefit[]> => {
       // Pull the user's active cards together with each card_product's
       // benefit_definitions and any open benefit cycles + redemptions.
@@ -806,7 +812,7 @@ export function useAddUserCard(portfolioId: string | undefined) {
       if (user) await markOnboarded(user.id);
       track("card_added", {}, portfolioId);
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"] });
     },
   });
@@ -836,7 +842,7 @@ export function useUpdateUserCard(portfolioId: string | undefined) {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       // Points-tab rows display card nicknames.
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
       qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
@@ -901,7 +907,7 @@ export function useRemoveUserCard(portfolioId: string | undefined) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
     },
   });
 }
@@ -1021,7 +1027,7 @@ export function useEnsureCycles(portfolioId: string | undefined) {
     },
     onSuccess: (result) => {
       if (result && (result.created > 0 || result.expired > 0)) {
-        qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+        qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       }
     },
   });
@@ -1087,7 +1093,7 @@ export async function applyBenefitRedeemed(
  *  (e.g. from an Undo). Uses the singleton client so it works post-navigation. */
 export function invalidateBenefits(portfolioId: string | undefined) {
   return queryClient.invalidateQueries({
-    queryKey: ["portfolio", portfolioId, "benefits"],
+    queryKey: benefitsQueryKey(portfolioId),
   });
 }
 
@@ -1102,7 +1108,7 @@ export function useToggleBenefitRedeemed(portfolioId: string | undefined) {
       track("benefit_redeemed", { redeem: vars.redeem }, portfolioId);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "benefits"] });
+      qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
     },
   });
 }

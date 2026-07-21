@@ -29,7 +29,7 @@ import {
   useProgramWallets,
   useSetWalletBalance,
 } from "@/lib/hooks";
-import { snackbar } from "@/lib/snackbar";
+import { snackbar, snackbarAfterModalClose } from "@/lib/snackbar";
 import { colors } from "@/lib/theme";
 
 export default function PointsScreen() {
@@ -191,7 +191,7 @@ export default function PointsScreen() {
               {
                 onSuccess: () => {
                   setEditing(null);
-                  snackbar.success("Balance updated");
+                  snackbarAfterModalClose(() => snackbar.success("Balance updated"));
                 },
                 // Modal stays open so the user can retry their entry; a root
                 // snackbar can't overlay it, so keep the in-modal Alert.

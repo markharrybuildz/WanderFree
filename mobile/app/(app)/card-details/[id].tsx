@@ -43,7 +43,7 @@ import {
   useUpdateSignupBonus,
   useUpdateUserCard,
 } from "@/lib/hooks";
-import { snackbar } from "@/lib/snackbar";
+import { snackbar, snackbarAfterModalClose } from "@/lib/snackbar";
 import { colors, fonts } from "@/lib/theme";
 import type { ProgramUnitType } from "@/lib/types";
 
@@ -130,7 +130,7 @@ export default function CardDetailsScreen() {
       {
         onSuccess: () => {
           setEditing(false);
-          snackbar.success("Changes saved");
+          snackbarAfterModalClose(() => snackbar.success("Changes saved"));
         },
         onError: (e) => setEditError((e as Error).message),
       },
@@ -317,7 +317,7 @@ export default function CardDetailsScreen() {
     const onDone = {
       onSuccess: () => {
         setBonusModal(false);
-        snackbar.success("Bonus saved");
+        snackbarAfterModalClose(() => snackbar.success("Bonus saved"));
       },
       onError: (e: Error) => setBonusError(e.message),
     };
@@ -376,7 +376,7 @@ export default function CardDetailsScreen() {
       {
         onSuccess: () => {
           setSpendModal(false);
-          snackbar.success("Spend added");
+          snackbarAfterModalClose(() => snackbar.success("Spend added"));
         },
         onError: (e) => setSpendError((e as Error).message),
       },
@@ -945,7 +945,7 @@ export default function CardDetailsScreen() {
               {
                 onSuccess: () => {
                   setWalletEditOpen(false);
-                  snackbar.success("Balance updated");
+                  snackbarAfterModalClose(() => snackbar.success("Balance updated"));
                 },
                 // Modal stays open on failure; keep the in-modal Alert.
                 onError: (e) => notify("Save failed", (e as Error).message),

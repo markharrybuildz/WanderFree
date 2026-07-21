@@ -81,16 +81,18 @@ export const snackbar = {
     return item.id;
   },
 
+  // Reference `snackbar` directly rather than `this` so a detached call
+  // (`const { success } = snackbar`) can't break with an undefined `this`.
   success(message: string, opts?: Omit<SnackbarOptions, "message" | "variant">) {
-    return this.show({ ...opts, message, variant: "success" });
+    return snackbar.show({ ...opts, message, variant: "success" });
   },
 
   error(message: string, opts?: Omit<SnackbarOptions, "message" | "variant">) {
-    return this.show({ ...opts, message, variant: "error" });
+    return snackbar.show({ ...opts, message, variant: "error" });
   },
 
   info(message: string, opts?: Omit<SnackbarOptions, "message" | "variant">) {
-    return this.show({ ...opts, message, variant: "info" });
+    return snackbar.show({ ...opts, message, variant: "info" });
   },
 
   /** Dismiss the visible snackbar (no id), or remove a specific one whether
@@ -111,3 +113,14 @@ export const snackbar = {
     return () => listeners.delete(listener);
   },
 };
+
+// A native <Modal> takes roughly this long to animate out. The snackbar host
+// lives at the React root, so on native it can't render above an open modal.
+export const MODAL_ANIM_MS = 300;
+
+/** Run a snackbar call after a just-closed native <Modal> has finished
+ *  dismissing, so it isn't emitted behind the still-animating modal and
+ *  missed. Use in a mutation onSuccess that also hides a modal. */
+export function snackbarAfterModalClose(run: () => void): void {
+  setTimeout(run, MODAL_ANIM_MS);
+}

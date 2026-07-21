@@ -39,7 +39,7 @@ import {
   useUserCards,
 } from "@/lib/hooks";
 import { isOnboarded, markOnboarded } from "@/lib/onboarding";
-import { snackbar } from "@/lib/snackbar";
+import { snackbar, snackbarAfterModalClose } from "@/lib/snackbar";
 import { supabase } from "@/lib/supabase";
 import { colors, fonts } from "@/lib/theme";
 import type { CardProduct } from "@/lib/types";
@@ -205,7 +205,7 @@ export default function CardsScreen() {
       {
         onSuccess: () => {
           setAddTarget(null);
-          snackbar.success("Card added");
+          snackbarAfterModalClose(() => snackbar.success("Card added"));
         },
         // Modal is still open on failure, so show the error inline.
         onError: (e) => setAddError((e as Error).message),
