@@ -98,6 +98,39 @@ function describe(err: unknown): {
   }
 }
 
+/** Heuristic: a transient connectivity failure (offline, DNS, timeout, dropped
+ *  socket) rather than an app bug. RN's fetch rejects these with recognizable
+ *  messages and Supabase-js surfaces them verbatim, so we can match on the
+ *  message/name. Used to drop the burst of background-refetch failures an
+ *  offline cold launch produces — those are expected and non-actionable.
+ *
+ *  Match transport failures NARROWLY: a bare "connection" substring would also
+ *  swallow real, actionable errors ("connection pool exhausted", "could not
+ *  connect to the server" from a misconfig), so we require a specific dropped-
+ *  socket phrase instead. Exported for regression coverage of that boundary. */
+export function isTransientNetworkError(err: unknown): boolean {
+  const name = err instanceof Error ? err.name : "";
+  const raw =
+    err instanceof Error ? err.message : typeof err === "string" ? err : "";
+  const m = (raw ?? "").toLowerCase();
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    m.includes("network request failed") ||
+    m.includes("network error") ||
+    m.includes("failed to fetch") ||
+    m.includes("timeout") ||
+    m.includes("timed out") ||
+    m.includes("connection reset") ||
+    m.includes("connection refused") ||
+    m.includes("connection closed") ||
+    m.includes("connection aborted") ||
+    m.includes("network connection was lost") ||
+    m.includes("unable to resolve host") ||
+    m.includes("internet connection appears to be offline")
+  );
+}
+
 /** Record an error. Safe to call from anywhere — all I/O is deferred, and it
  *  never throws (a logging failure must not mask the original error). */
 export function logError(
@@ -109,10 +142,19 @@ export function logError(
   } = {},
 ): void {
   try {
+    const source = opts.source ?? "manual";
+    // Background data-layer refetches (source "query") fail in bursts when the
+    // device is offline — e.g. a cold launch with no connectivity retries every
+    // query, then logs each one after retries are exhausted. Those network
+    // failures are expected and non-actionable, so drop them for this source to
+    // keep the error log signal-heavy. User-initiated (mutation), fatal
+    // (global/boundary), and explicit (manual) logs are kept even when network-
+    // related, because there a connectivity failure is genuinely worth seeing.
+    if (source === "query" && isTransientNetworkError(err)) return;
     const { message, error_type, stack } = describe(err);
     buffer.push({
       id: uuidv4(),
-      source: opts.source ?? "manual",
+      source,
       error_type,
       message,
       stack,
