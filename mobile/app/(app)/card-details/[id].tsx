@@ -31,6 +31,7 @@ import {
   localIsoDay,
   programUnitLabel,
   usd,
+  usdCents,
 } from "@/lib/format";
 import {
   useAddSignupBonus,
@@ -38,6 +39,7 @@ import {
   useCardDetails,
   useCurrentPortfolio,
   useProgramWallets,
+  useRemoveSpendEntry,
   useRemoveUserCard,
   useSetWalletBalance,
   useUpdateSignupBonus,
@@ -56,6 +58,18 @@ function formatOpenedOn(iso: string | null): string {
     month: "short",
     day: "numeric",
   });
+}
+
+/** Constrain a currency text field to digits and at most two decimal places,
+ *  so what the user types matches what numeric(12,2) will actually store (it
+ *  would otherwise silently round "10.999" to "11.00"). */
+function sanitizeAmountInput(raw: string): string {
+  const cleaned = raw.replace(/[^0-9.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned;
+  const intPart = cleaned.slice(0, firstDot);
+  const decPart = cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, 2);
+  return `${intPart}.${decPart}`;
 }
 
 function formatPeriod(start: string, end: string): string {
@@ -81,6 +95,7 @@ export default function CardDetailsScreen() {
   const addBonus = useAddSignupBonus();
   const updateBonus = useUpdateSignupBonus();
   const addSpend = useAddSpendEntry();
+  const removeSpend = useRemoveSpendEntry();
   const { data: programWallets } = useProgramWallets(portfolioId);
   const setBalance = useSetWalletBalance(portfolioId);
   const [walletEditOpen, setWalletEditOpen] = useState(false);
@@ -383,6 +398,32 @@ export default function CardDetailsScreen() {
     );
   }
 
+  function deleteSpend(entry: {
+    id: string;
+    amount: number;
+    spent_on: string;
+    signup_bonus_id: string | null;
+  }) {
+    const suffix = entry.signup_bonus_id
+      ? " Bonus progress will be recalculated."
+      : "";
+    confirmDestructive({
+      title: "Remove spend?",
+      message: `Delete the ${usdCents(Number(entry.amount))} entry from ${fmtDate(
+        entry.spent_on,
+      )}?${suffix}`,
+      confirmLabel: "Remove",
+      onConfirm: () =>
+        removeSpend.mutate(
+          { entryId: entry.id, userCardId: c.id },
+          {
+            onSuccess: () => snackbar.success("Spend removed"),
+            onError: (e) => snackbar.error((e as Error).message),
+          },
+        ),
+    });
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top"]}>
       <View className="bg-surface border-b border-border px-4 py-4 flex-row items-center gap-3">
@@ -561,7 +602,17 @@ export default function CardDetailsScreen() {
                 <Text variant="body" className="text-text-muted">
                   {fmtDate(s.spent_on)}
                 </Text>
-                <Text variant="title">{usd(Number(s.amount))}</Text>
+                <View className="flex-row items-center gap-3">
+                  <Text variant="title">{usdCents(Number(s.amount))}</Text>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => deleteSpend(s)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${usdCents(Number(s.amount))} spend from ${fmtDate(s.spent_on)}`}
+                  >
+                    <Trash2 size={18} color={colors.textSubtle} />
+                  </Pressable>
+                </View>
               </View>
             ))
           ) : (
@@ -572,6 +623,25 @@ export default function CardDetailsScreen() {
               </Text>
             </View>
           )}
+          {c.spend_entries.length > recentSpend.length ? (
+            <Pressable
+              onPress={() =>
+                // Cast: the generated route union lags a newly-added dynamic
+                // route until Metro restarts. Runtime resolution is fine.
+                router.push({
+                  pathname: "/card-spend/[id]" as never,
+                  params: { id: c.id },
+                })
+              }
+              className="px-4 py-3 border-t border-border items-center"
+              accessibilityRole="button"
+              accessibilityLabel="See all spend"
+            >
+              <Text variant="label" className="text-primary-strong">
+                See all {c.spend_entries.length} transactions
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View className="bg-surface rounded-2xl border border-border">
@@ -862,7 +932,7 @@ export default function CardDetailsScreen() {
               placeholderTextColor={colors.textSubtle}
               value={spendAmount}
               onChangeText={(t) => {
-                setSpendAmount(t);
+                setSpendAmount(sanitizeAmountInput(t));
                 if (spendError) setSpendError(null);
               }}
               keyboardType="decimal-pad"

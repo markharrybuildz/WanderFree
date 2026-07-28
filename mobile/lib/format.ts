@@ -9,6 +9,16 @@ export function usd(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
+/** Like usd() but keeps cents — for line items where the exact amount matters
+ *  (e.g. individual spend entries). usd() rounds to whole dollars; this always
+ *  shows two decimal places, e.g. "$1,200.40". */
+export function usdCents(n: number): string {
+  return `$${n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 /**
  * Catalog benefit names embed the headline value, e.g.
  * "$120 Peloton Membership Credit". Split that leading amount off so the title

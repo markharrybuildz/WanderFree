@@ -1195,3 +1195,24 @@ export function useAddSpendEntry() {
     },
   });
 }
+
+/** Remove a manual spend entry via the `remove_spend_entry` Postgres function
+ *  (migration 20260728120000): the delete and the signup-bonus completion
+ *  recompute run in ONE transaction, un-completing the bonus (and reversing its
+ *  wallet credit) if spend now falls below target. Mirror of useAddSpendEntry. */
+export function useRemoveSpendEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { entryId: string; userCardId: string }) => {
+      const { error } = await supabase.rpc("remove_spend_entry", {
+        p_entry_id: args.entryId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      track("spend_removed");
+      qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
+      qc.invalidateQueries({ queryKey: ["portfolio"] });
+    },
+  });
+}
