@@ -1216,3 +1216,35 @@ export function useRemoveSpendEntry() {
     },
   });
 }
+
+// ── Feature flags ─────────────────────────────────────────────────────────
+
+export type FeatureFlags = Record<string, boolean>;
+
+/** Public feature flags from the single-row `public.app_config` table
+ *  (migration 20260728130000). Non-sensitive UI kill-switches / WIP gating,
+ *  edited via Supabase Studio and read-only from the client. Cached like other
+ *  queries but with a shorter staleTime than the catalog so a flipped flag
+ *  propagates within minutes rather than the 1h catalog window. */
+export function useFeatureFlags() {
+  return useQuery({
+    queryKey: ["app_config"],
+    staleTime: 1000 * 60 * 5,
+    queryFn: async (): Promise<FeatureFlags> => {
+      const { data, error } = await supabase
+        .from("app_config")
+        .select("flags")
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.flags as FeatureFlags) ?? {};
+    },
+  });
+}
+
+/** Read a single flag, with a fallback used while config loads or when the key
+ *  is absent. Defaults to `false` (feature off) so a new flag is dark until
+ *  explicitly enabled in app_config. */
+export function useFeatureFlag(key: string, fallback = false): boolean {
+  const { data } = useFeatureFlags();
+  return data?.[key] ?? fallback;
+}
