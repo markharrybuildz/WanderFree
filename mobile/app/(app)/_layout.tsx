@@ -51,6 +51,7 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="card-details/[id]" />
+      <Stack.Screen name="card-spend/[id]" />
       <Stack.Screen name="benefit-detail/[key]" />
     </Stack>
   );
