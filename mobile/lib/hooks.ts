@@ -1236,7 +1236,15 @@ export function useFeatureFlags() {
         .select("flags")
         .maybeSingle();
       if (error) throw error;
-      return (data?.flags as FeatureFlags) ?? {};
+      // flags is a boolean contract; the jsonb is edited by hand in Studio, so
+      // coerce defensively — keep only boolean values and drop anything else,
+      // which then falls through to each caller's fallback.
+      const raw = (data?.flags ?? {}) as Record<string, unknown>;
+      const flags: FeatureFlags = {};
+      for (const [key, value] of Object.entries(raw)) {
+        if (typeof value === "boolean") flags[key] = value;
+      }
+      return flags;
     },
   });
 }
