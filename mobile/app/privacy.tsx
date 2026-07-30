@@ -104,12 +104,12 @@ export default function PrivacyScreen() {
           You can permanently delete your account and all associated data at any
           time from Account → Delete account, and opt out of usage analytics
           from Account → Share anonymous usage data. You can also email us at
-          [your-support-email] with any request.
+          wanderfree.app@gmail.com with any request.
         </Section>
 
         <Section title="Contact">
-          [Your name / entity] · [your-support-email]{"\n"}
-          Last updated: [date]
+          WanderFree · wanderfree.app@gmail.com{"\n"}
+          Last updated: July 29, 2026
         </Section>
 
         <Text variant="caption" className="text-text-subtle mt-2">
