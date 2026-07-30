@@ -35,7 +35,7 @@ export function CreatePortfolioScreen() {
           className="mb-2 -ml-2"
         />
         <Text variant="display" className="mb-2">
-          Welcome to WanderFree
+          Welcome to WanderFreely
         </Text>
         <Text variant="body" className="text-text-muted mb-8">
           Name your first profile. A profile holds a set of credit cards
