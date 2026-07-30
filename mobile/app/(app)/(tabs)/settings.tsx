@@ -81,7 +81,7 @@ export default function AccountScreen() {
             />
           </View>
           <Text variant="caption" className="text-text-subtle mt-2">
-            Helps improve WanderFree. Screens viewed and features used — never
+            Helps improve WanderFreely. Screens viewed and features used — never
             your email, card details, or spending amounts. See the Privacy
             Policy below.
           </Text>

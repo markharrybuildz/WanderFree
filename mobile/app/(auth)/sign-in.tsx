@@ -89,7 +89,7 @@ export default function SignInScreen() {
           style={{ width: 88, height: 88 }}
           className="mb-2 -ml-2"
         />
-        <Text variant="display" className="mb-2">WanderFree</Text>
+        <Text variant="display" className="mb-2">WanderFreely</Text>
         <Text variant="body" className="text-text-muted mb-8">
           {mode === "sign-in" ? "Sign in to your account" : "Create an account"}
         </Text>

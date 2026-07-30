@@ -51,7 +51,7 @@ export default function PrivacyScreen() {
       >
         <View className="bg-warning-subtle rounded-xl p-3 mb-5">
           <Text variant="caption" className="text-warning">
-            WanderFree is currently in beta. This notice is provided in plain
+            WanderFreely is currently in beta. This notice is provided in plain
             language; your data and features may change or be reset during
             testing.
           </Text>
@@ -108,8 +108,8 @@ export default function PrivacyScreen() {
         </Section>
 
         <Section title="Contact">
-          WanderFree · wanderfree.app@gmail.com{"\n"}
-          Last updated: July 29, 2026
+          WanderFreely · wanderfree.app@gmail.com{"\n"}
+          Last updated: July 30, 2026
         </Section>
 
         <Text variant="caption" className="text-text-subtle mt-2">
