@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WanderFreely — Get more from the cards in your wallet</title>
+<meta name="description" content="WanderFreely helps you get real value from the credit cards you already carry. Track signup-bonus progress, recurring benefits and credits, and points across every rewards program — in one simple app." />
+<meta name="theme-color" content="#0EA5E9" />
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="apple-touch-icon" href="assets/icon.png" />
+
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="WanderFreely — Get more from the cards in your wallet" />
+<meta property="og:description" content="Track signup bonuses, benefits, and points across every card — in one simple app. Now in beta." />
+<meta property="og:image" content="assets/icon.png" />
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="#top" aria-label="WanderFreely home">
+      <img src="assets/logo-mark.png" alt="" width="30" height="30" />
+      WanderFreely
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Primary">
+      <a class="navlink" href="#features">Features</a>
+      <a class="navlink" href="#how">How it works</a>
+      <a class="navlink" href="#support">Support</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-primary btn-sm hide-sm" href="mailto:wanderfree.app@gmail.com?subject=WanderFreely%20beta%20access">Join the beta</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="navLinks">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="dot"></span> Now in beta</span>
+      <h1 class="hero-title">Stop leaving card perks on the table.</h1>
+      <p class="lead">You already pay for the travel credits, lounge passes, and points. WanderFreely keeps every signup bonus, benefit, and reward in one place — so you actually use what you're owed.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="mailto:wanderfree.app@gmail.com?subject=WanderFreely%20beta%20access">Join the beta</a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="hero-note">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        No card numbers. No bank logins. Ever.
+      </p>
+
+      <div class="trust">
+        <span class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+          Works with any card
+        </span>
+        <span class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Private by design
+        </span>
+        <span class="trust-item">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3v16a2 2 0 0 0 2 2h12"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          Built for points people
+        </span>
+      </div>
+    </div>
+
+    <!-- Real app screenshots: Home in front, Benefits behind -->
+    <div class="phone-wrap">
+      <div class="phone-cluster">
+        <div class="device device-back" aria-hidden="true">
+          <img src="assets/screen-benefits.png" alt="" width="676" height="1464" loading="lazy" />
+        </div>
+        <div class="device device-front">
+          <img src="assets/screen-home.png" width="676" height="1458"
+               alt="The WanderFreely Home screen: signup-bonus progress on the Chase Sapphire Reserve ($1,260 of $6,000 spent toward 100,000 points) and card credits expiring soon." />
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section features" id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow"><span class="dot"></span> Everything, in one place</span>
+      <h2 class="section-title">Four things your cards never tell you.</h2>
+      <p class="lead">Issuers make it easy to forget the value you're paying for. WanderFreely surfaces it.</p>
+    </div>
+    <div class="feature-grid">
+      <article class="feature reveal">
+        <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+        <h3>Your cards, organized</h3>
+        <p>Add every card you hold and see its annual fee, network, and perks at a glance — no more guessing what's in your wallet.</p>
+      </article>
+      <article class="feature reveal">
+        <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg></div>
+        <h3>Signup bonuses, on track</h3>
+        <p>Log spend and watch a live progress bar toward the required spend — so you never miss a 100,000-point welcome offer by a deadline.</p>
+      </article>
+      <article class="feature reveal">
+        <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12l2 2 4-4"/><path d="M12 3l7.5 4v5c0 5-3.4 8-7.5 9-4.1-1-7.5-4-7.5-9V7L12 3Z"/></svg></div>
+        <h3>Never miss a credit</h3>
+        <p>Track recurring benefits and statement credits by cycle — travel credits, memberships, and more — and mark them as you redeem.</p>
+      </article>
+      <article class="feature reveal">
+        <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.66 3.58 3 8 3s8-1.34 8-3V6"/><path d="M4 12v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"/></svg></div>
+        <h3>Every point in one place</h3>
+        <p>See balances across each rewards program — points, miles, and cash back — so you always know what you have to spend.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-head center reveal">
+      <span class="eyebrow"><span class="dot"></span> How it works</span>
+      <h2 class="section-title">Set up in minutes. Save all year.</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="num">1</div>
+        <h3>Add your cards</h3>
+        <p>Pick the cards you carry from the catalog. WanderFreely fills in the fees, benefits, and reward rules for you.</p>
+      </div>
+      <div class="step reveal">
+        <div class="num">2</div>
+        <h3>Track spend &amp; credits</h3>
+        <p>Log purchases toward a signup bonus and check off benefits as you use them. No receipts, no bank connections.</p>
+      </div>
+      <div class="step reveal">
+        <div class="num">3</div>
+        <h3>Get every dollar back</h3>
+        <p>See what's left to earn, what's about to expire, and what you're leaving behind — before the year runs out.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BAND -->
+<section class="section cta-band">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <h2>Get more from the cards you already have.</h2>
+      <p>WanderFreely is free while we're in beta. Come kick the tires.</p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="mailto:wanderfree.app@gmail.com?subject=WanderFreely%20beta%20access">Join the beta</a>
+        <a class="btn btn-ghost" href="#support">Questions? Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SUPPORT -->
+<section class="section support" id="support">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow"><span class="dot"></span> Support</span>
+      <h2 class="section-title">We're a real person away.</h2>
+    </div>
+    <div class="support-grid">
+      <div class="support-card reveal">
+        <h3>Get in touch</h3>
+        <p>Questions, bugs, feature ideas, or beta access — email us and we'll get back to you, usually within a day.</p>
+        <a class="email" href="mailto:wanderfree.app@gmail.com">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+          wanderfree.app@gmail.com
+        </a>
+      </div>
+      <div class="faq reveal">
+        <details>
+          <summary>What is WanderFreely? <svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+          <p>A simple app for people who use rewards credit cards. It tracks the cards you hold, your progress toward signup bonuses, the recurring benefits and credits on each card, and your points across every program — so you actually use the value you're paying for.</p>
+        </details>
+        <details>
+          <summary>Is my financial data safe? <svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+          <p>Yes. WanderFreely never asks for full card numbers, security codes, or bank logins, and it does not connect to your financial accounts. Your data is stored securely and protected by per-user access rules so only you can see it. See our <a href="privacy-policy.html">Privacy Policy</a> for details.</p>
+        </details>
+        <details>
+          <summary>How do I join the beta? <svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+          <p>Email <a href="mailto:wanderfree.app@gmail.com?subject=WanderFreely%20beta%20access">wanderfree.app@gmail.com</a> and we'll send you an invite. WanderFreely is free during the beta.</p>
+        </details>
+        <details>
+          <summary>Which cards are supported? <svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+          <p>We're expanding the catalog continuously. If a card you hold isn't there yet, let us know and we'll add it.</p>
+        </details>
+        <details>
+          <summary>How do I delete my account? <svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+          <p>Any time, right from the app: go to Account → Delete account, and your data is permanently removed. You can also email us to request deletion.</p>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div>
+        <span class="brand"><img src="assets/logo-mark.png" alt="" width="28" height="28" /> WanderFreely</span>
+        <p class="footer-tag">Get more from the cards in your wallet. Made for people who love their points.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="mailto:wanderfree.app@gmail.com?subject=WanderFreely%20beta%20access">Join the beta</a>
+        </div>
+        <div class="footer-col">
+          <h4>Support</h4>
+          <a href="#support">Help &amp; FAQ</a>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="mailto:wanderfree.app@gmail.com">Contact</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 WanderFreely</span>
+      <span>wanderfree.app@gmail.com</span>
+    </div>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
