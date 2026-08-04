@@ -40,7 +40,10 @@ export default function SignInScreen() {
       return;
     }
 
-    if (mode === "sign-up") {
+    // Sign-up with email confirmation ON returns no session (user must click
+    // the emailed link first). With confirmation OFF, Supabase returns a
+    // session immediately — fall through and route them straight into the app.
+    if (mode === "sign-up" && !data.session) {
       Alert.alert(
         "Check your email",
         "We sent you a confirmation link. Click it, then come back and sign in.",
@@ -86,8 +89,11 @@ export default function SignInScreen() {
       <View className="flex-1 justify-center px-6">
         <Image
           source={require("../../assets/logo-mark.png")}
-          style={{ width: 88, height: 88 }}
-          className="mb-2 -ml-2"
+          // The logo PNG has ~18px of transparent padding each side at this
+          // size; pull left by that so the mark's edge lines up with the
+          // "WanderFreely" / subtitle text below it.
+          style={{ width: 88, height: 88, marginLeft: -18 }}
+          className="mb-2"
         />
         <Text variant="display" className="mb-2">WanderFreely</Text>
         <Text variant="body" className="text-text-muted mb-8">
