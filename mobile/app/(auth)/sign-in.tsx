@@ -89,14 +89,11 @@ export default function SignInScreen() {
       <View className="flex-1 justify-center px-6">
         <Image
           source={require("../../assets/logo-mark.png")}
-          // The logo PNG has ~18px of transparent padding each side at this
-          // size; pull left by that so the mark's edge lines up with the
-          // "WanderFreely" / subtitle text below it.
-          style={{ width: 88, height: 88, marginLeft: -18 }}
-          className="mb-2"
+          style={{ width: 88, height: 88 }}
+          className="mb-2 self-center"
         />
-        <Text variant="display" className="mb-2">WanderFreely</Text>
-        <Text variant="body" className="text-text-muted mb-8">
+        <Text variant="display" className="mb-2 text-center">WanderFreely</Text>
+        <Text variant="body" className="text-text-muted mb-8 text-center">
           {mode === "sign-in" ? "Sign in to your account" : "Create an account"}
         </Text>
 
