@@ -15,7 +15,7 @@
       "url": "https://u.expo.dev/1e84f05c-817e-421a-a7c8-f8787db323c4"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.wanderfree.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
