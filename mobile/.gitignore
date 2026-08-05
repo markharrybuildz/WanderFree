@@ -19,3 +19,7 @@ expo-env.d.ts
 
 # Google Play service account key (Play Console upload creds) — never commit
 google-service-account.json
+
+# App Store Connect API key (.p8 upload creds) — never commit
+asc-api-key.p8
+*.p8

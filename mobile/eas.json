@@ -26,6 +26,12 @@
   },
   "submit": {
     "production": {
+      "ios": {
+        "ascAppId": "6796152307",
+        "ascApiKeyPath": "./asc-api-key.p8",
+        "ascApiKeyId": "77UMB9D8F6",
+        "ascApiKeyIssuerId": "37daeaeb-a446-4f97-b0d2-49cac8528fae"
+      },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal"
