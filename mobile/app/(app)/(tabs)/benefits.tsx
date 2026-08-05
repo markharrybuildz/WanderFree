@@ -21,24 +21,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  Modal,
   Pressable,
   SectionList,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BenefitRow, daysUntil } from "@/components/BenefitRow";
 import { Button } from "@/components/ui/Button";
+import { SheetModal } from "@/components/ui/SheetModal";
 import { Text } from "@/components/ui/Text";
 import { cn } from "@/lib/cn";
 import { benefitValue, splitNameValue, usd } from "@/lib/format";
-import {
-  useBenefits,
-  useCurrentPortfolio,
-  useEnsureCycles,
-} from "@/lib/hooks";
+import { useBenefits, useCurrentPortfolio, useEnsureCycles } from "@/lib/hooks";
 import { colors, fonts } from "@/lib/theme";
 import { type UserVisibleBenefit } from "@/lib/types";
 
@@ -57,10 +53,17 @@ function matchesAvailability(
 }
 
 export default function BenefitsScreen() {
-  const { data: portfolio, isLoading: portfolioLoading } = useCurrentPortfolio();
+  const { data: portfolio, isLoading: portfolioLoading } =
+    useCurrentPortfolio();
   const portfolioId = portfolio?.id;
 
-  const { data: benefits, isLoading, error, refetch, isFetching } = useBenefits(portfolioId);
+  const {
+    data: benefits,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useBenefits(portfolioId);
   const ensure = useEnsureCycles(portfolioId);
 
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
@@ -103,7 +106,13 @@ export default function BenefitsScreen() {
       got += g;
       const remaining = Math.max(0, v - g);
       const d = daysUntil(b.cycle?.period_end);
-      if (!b.fully_redeemed && remaining > 0 && d != null && d >= 0 && d <= 30) {
+      if (
+        !b.fully_redeemed &&
+        remaining > 0 &&
+        d != null &&
+        d >= 0 &&
+        d <= 30
+      ) {
         soon += remaining;
       }
     }
@@ -121,7 +130,8 @@ export default function BenefitsScreen() {
     // name, or category.
     const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
     return list.filter((b) => {
-      if (categoryFilter && b.benefit_category?.name !== categoryFilter) return false;
+      if (categoryFilter && b.benefit_category?.name !== categoryFilter)
+        return false;
       if (availabilityFilter && !matchesAvailability(b, availabilityFilter)) {
         return false;
       }
@@ -166,12 +176,19 @@ export default function BenefitsScreen() {
     // Most-recently-expired first (−1 before −30).
     expired.sort((a, b) => (days.get(b) ?? 0) - (days.get(a) ?? 0));
 
-    const out: { title: string; tone?: "amber" | "muted"; data: UserVisibleBenefit[] }[] = [];
-    if (week.length) out.push({ title: "Expiring this week", tone: "amber", data: week });
+    const out: {
+      title: string;
+      tone?: "amber" | "muted";
+      data: UserVisibleBenefit[];
+    }[] = [];
+    if (week.length)
+      out.push({ title: "Expiring this week", tone: "amber", data: week });
     if (month.length) out.push({ title: "This month", data: month });
     if (later.length) out.push({ title: "Later", data: later });
-    if (expired.length) out.push({ title: "Expired", tone: "muted", data: expired });
-    if (redeemed.length) out.push({ title: "Redeemed", tone: "muted", data: redeemed });
+    if (expired.length)
+      out.push({ title: "Expired", tone: "muted", data: expired });
+    if (redeemed.length)
+      out.push({ title: "Redeemed", tone: "muted", data: redeemed });
     return out;
   }, [filtered]);
 
@@ -281,7 +298,12 @@ export default function BenefitsScreen() {
         stickySectionHeadersEnabled={false}
         ListHeaderComponent={
           <View className="gap-3 mb-1">
-            <Hero left={hero.left} cap={hero.cap} soon={hero.soon} pct={hero.pct} />
+            <Hero
+              left={hero.left}
+              cap={hero.cap}
+              soon={hero.soon}
+              pct={hero.pct}
+            />
             <View className="flex-row gap-2">
               <Dropdown
                 label="Category"
@@ -314,7 +336,9 @@ export default function BenefitsScreen() {
               variant="label"
               className={cn(
                 "uppercase",
-                section.tone === "muted" ? "text-text-subtle" : "text-text-muted",
+                section.tone === "muted"
+                  ? "text-text-subtle"
+                  : "text-text-muted",
               )}
             >
               {section.title}
@@ -411,7 +435,9 @@ function Dropdown<T extends string | null>({
         className="flex-1 flex-row items-center justify-between px-3 py-2.5 rounded-full bg-surface border border-border"
       >
         <Text variant="callout" numberOfLines={1} className="flex-1">
-          <Text variant="callout" className="text-text-muted">{label}: </Text>
+          <Text variant="callout" className="text-text-muted">
+            {label}:{" "}
+          </Text>
           {current}
         </Text>
         <ChevronDown size={15} color={colors.textMuted} />
@@ -443,34 +469,3 @@ function Dropdown<T extends string | null>({
     </>
   );
 }
-
-function SheetModal({
-  open,
-  title,
-  onClose,
-  children,
-}: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  // Android 15 draws edge-to-edge, so the sheet needs the real bottom inset
-  // rather than fixed padding.
-  const insets = useSafeAreaInsets();
-  return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-overlay/40 justify-end" onPress={onClose}>
-        <Pressable
-          className="bg-surface rounded-t-3xl px-5 pt-5"
-          style={{ paddingBottom: Math.max(insets.bottom, 24) + 16 }}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <Text variant="h2" className="mb-2">{title}</Text>
-          {children}
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-

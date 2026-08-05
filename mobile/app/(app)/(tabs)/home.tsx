@@ -22,12 +22,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdSlot } from "@/components/AdSlot";
 import { BenefitRow, daysUntil } from "@/components/BenefitRow";
 import { CardArtThumbnail } from "@/components/CardArtThumbnail";
 import { Button } from "@/components/ui/Button";
+import { SheetModal } from "@/components/ui/SheetModal";
 import { Text } from "@/components/ui/Text";
 import { useAuthSession } from "@/lib/auth";
 import { cn } from "@/lib/cn";
@@ -52,10 +53,8 @@ const EXPIRING_HORIZON_DAYS = 30;
 
 export default function HomeScreen() {
   const { session } = useAuthSession();
-  // Bottom inset for the profiles sheet — Android 15 draws edge-to-edge,
-  // so fixed padding would sit under the gesture bar.
-  const insets = useSafeAreaInsets();
-  const { data: portfolio, isLoading: portfolioLoading } = useCurrentPortfolio();
+  const { data: portfolio, isLoading: portfolioLoading } =
+    useCurrentPortfolio();
   const portfolioId = portfolio?.id;
 
   const {
@@ -248,77 +247,62 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      <Modal
-        visible={profilesOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setProfilesOpen(false)}
+      <SheetModal
+        open={profilesOpen}
+        title="Profiles"
+        onClose={() => setProfilesOpen(false)}
       >
-        <Pressable
-          className="flex-1 bg-overlay/40 justify-end"
-          onPress={() => setProfilesOpen(false)}
-        >
-          <Pressable
-            className="bg-surface rounded-t-3xl px-5 pt-5"
-            style={{ paddingBottom: Math.max(insets.bottom, 24) + 16 }}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text variant="h2" className="mb-2">
-              Profiles
-            </Text>
-            {(profiles ?? []).map((p) => {
-              const isCurrent = p.id === portfolio?.id;
-              const canDelete = !!session && p.created_by === session.user.id;
-              return (
-                <View
-                  key={p.id}
-                  className="flex-row items-center border-b border-border"
-                >
-                  <Pressable
-                    onPress={() => handleSwitch(p)}
-                    className="flex-1 flex-row items-center justify-between py-3"
-                  >
-                    <Text
-                      variant={isCurrent ? "title" : "body"}
-                      className={isCurrent ? "text-primary-strong" : "text-text"}
-                    >
-                      {p.name}
-                    </Text>
-                    {isCurrent && <Check size={18} color={colors.primaryStrong} />}
-                  </Pressable>
-                  {canDelete && (
-                    <Pressable
-                      onPress={() => handleDelete(p)}
-                      className="ml-3 p-1"
-                      hitSlop={8}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Delete profile ${p.name}`}
-                    >
-                      <Trash2 size={17} color={colors.textSubtle} />
-                    </Pressable>
-                  )}
-                </View>
-              );
-            })}
-            <Pressable
-              onPress={() => {
-                setProfilesOpen(false);
-                setNewName("");
-                // iOS can't present a modal while another is mid-dismissal —
-                // opening in the same tick silently fails. Wait out the
-                // sheet's closing animation first.
-                setTimeout(() => setCreating(true), 350);
-              }}
-              className="flex-row items-center gap-2 py-3.5"
+        {(profiles ?? []).map((p) => {
+          const isCurrent = p.id === portfolio?.id;
+          const canDelete = !!session && p.created_by === session.user.id;
+          return (
+            <View
+              key={p.id}
+              className="flex-row items-center border-b border-border"
             >
-              <Plus size={18} color={colors.primaryStrong} />
-              <Text variant="callout" className="text-primary-strong">
-                New profile
-              </Text>
-            </Pressable>
-          </Pressable>
+              <Pressable
+                onPress={() => handleSwitch(p)}
+                className="flex-1 flex-row items-center justify-between py-3"
+              >
+                <Text
+                  variant={isCurrent ? "title" : "body"}
+                  className={isCurrent ? "text-primary-strong" : "text-text"}
+                >
+                  {p.name}
+                </Text>
+                {isCurrent && <Check size={18} color={colors.primaryStrong} />}
+              </Pressable>
+              {canDelete && (
+                <Pressable
+                  onPress={() => handleDelete(p)}
+                  className="ml-3 p-1"
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete profile ${p.name}`}
+                >
+                  <Trash2 size={17} color={colors.textSubtle} />
+                </Pressable>
+              )}
+            </View>
+          );
+        })}
+        <Pressable
+          onPress={() => {
+            setProfilesOpen(false);
+            setNewName("");
+            // iOS can't present a modal while another is mid-dismissal —
+            // opening in the same tick silently fails. Wait out the sheet's
+            // closing animation first.
+            setTimeout(() => setCreating(true), 350);
+          }}
+          className="flex-row items-center gap-2 py-3.5"
+        >
+          <Plus size={18} color={colors.primaryStrong} />
+          <Text variant="callout" className="text-primary-strong">
+            New profile
+          </Text>
         </Pressable>
-      </Modal>
+      </SheetModal>
 
       <Modal
         visible={creating}
