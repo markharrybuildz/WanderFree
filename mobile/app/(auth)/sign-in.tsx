@@ -7,7 +7,15 @@
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Image, Pressable, TextInput, View } from "react-native";
+import {
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -86,81 +94,116 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg">
-      <View className="flex-1 justify-center px-6">
-        <Image
-          source={require("../../assets/logo-mark.png")}
-          style={{ width: 88, height: 88 }}
-          className="mb-2 self-center"
-        />
-        <Text variant="display" className="mb-2 text-center">WanderFreely</Text>
-        <Text variant="body" className="text-text-muted mb-8 text-center">
-          {mode === "sign-in" ? "Sign in to your account" : "Create an account"}
-        </Text>
-
-        <TextInput
-          className="bg-surface border border-border rounded-xl px-4 py-3 mb-3 text-text"
-          style={{ fontFamily: fonts.regular, fontSize: 16 }}
-          placeholder="Email"
-          placeholderTextColor={colors.textSubtle}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          className="bg-surface border border-border rounded-xl px-4 py-3 mb-6 text-text"
-          style={{ fontFamily: fonts.regular, fontSize: 16 }}
-          placeholder="Password"
-          placeholderTextColor={colors.textSubtle}
-          secureTextEntry
-          autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          label={mode === "sign-in" ? "Sign in" : "Sign up"}
-          loading={loading}
-          disabled={!email || !password}
-          onPress={handleSubmit}
-        />
-
-        <Pressable
-          onPress={() => setMode((m) => (m === "sign-in" ? "sign-up" : "sign-in"))}
-          className="mt-4 items-center"
+      {/*
+       * Keyboard handling: the iOS keyboard is an overlay that doesn't resize
+       * the view, so without this the bottom links (Sign up / Forgot password /
+       * Privacy Policy) get covered and become untappable. KeyboardAvoidingView
+       * pushes content up; the ScrollView makes anything still overlapped
+       * reachable. keyboardShouldPersistTaps="handled" is required so a single
+       * tap on a link fires (RN otherwise swallows the first tap to dismiss the
+       * keyboard); tapping empty space still dismisses it.
+       */}
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: 24,
+            paddingVertical: 24,
+          }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
         >
-          <Text variant="callout" className="text-primary-strong">
-            {mode === "sign-in"
-              ? "Need an account? Sign up"
-              : "Already have an account? Sign in"}
+          <Image
+            source={require("../../assets/logo-mark.png")}
+            style={{ width: 88, height: 88 }}
+            className="mb-2 self-center"
+          />
+          <Text variant="display" className="mb-2 text-center">
+            WanderFreely
           </Text>
-        </Pressable>
+          <Text variant="body" className="text-text-muted mb-8 text-center">
+            {mode === "sign-in"
+              ? "Sign in to your account"
+              : "Create an account"}
+          </Text>
 
-        {mode === "sign-in" && (
-          <Pressable onPress={handleForgotPassword} className="mt-3 items-center">
-            <Text variant="callout" className="text-text-muted">
-              Forgot password?
+          <TextInput
+            className="bg-surface border border-border rounded-xl px-4 py-3 mb-3 text-text"
+            style={{ fontFamily: fonts.regular, fontSize: 16 }}
+            placeholder="Email"
+            placeholderTextColor={colors.textSubtle}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+          />
+          <TextInput
+            className="bg-surface border border-border rounded-xl px-4 py-3 mb-6 text-text"
+            style={{ fontFamily: fonts.regular, fontSize: 16 }}
+            placeholder="Password"
+            placeholderTextColor={colors.textSubtle}
+            secureTextEntry
+            autoComplete={
+              mode === "sign-in" ? "current-password" : "new-password"
+            }
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            label={mode === "sign-in" ? "Sign in" : "Sign up"}
+            loading={loading}
+            disabled={!email || !password}
+            onPress={handleSubmit}
+          />
+
+          <Pressable
+            onPress={() =>
+              setMode((m) => (m === "sign-in" ? "sign-up" : "sign-in"))
+            }
+            className="mt-4 items-center"
+          >
+            <Text variant="callout" className="text-primary-strong">
+              {mode === "sign-in"
+                ? "Need an account? Sign up"
+                : "Already have an account? Sign in"}
             </Text>
           </Pressable>
-        )}
 
-        <Pressable
-          onPress={() => router.push("/privacy" as never)}
-          className="mt-8 items-center"
-        >
-          <Text variant="caption" className="text-text-subtle text-center">
-            By continuing, you agree to our{" "}
-            <Text variant="caption" className="text-text-muted underline">
-              Privacy Policy
+          {mode === "sign-in" && (
+            <Pressable
+              onPress={handleForgotPassword}
+              className="mt-3 items-center"
+            >
+              <Text variant="callout" className="text-text-muted">
+                Forgot password?
+              </Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            onPress={() => router.push("/privacy" as never)}
+            className="mt-8 items-center"
+          >
+            <Text variant="caption" className="text-text-subtle text-center">
+              By continuing, you agree to our{" "}
+              <Text variant="caption" className="text-text-muted underline">
+                Privacy Policy
+              </Text>
+              .
             </Text>
-            .
-          </Text>
-        </Pressable>
-      </View>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
