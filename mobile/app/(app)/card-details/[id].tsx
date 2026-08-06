@@ -16,7 +16,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
@@ -64,7 +67,10 @@ function sanitizeAmountInput(raw: string): string {
   const firstDot = cleaned.indexOf(".");
   if (firstDot === -1) return cleaned;
   const intPart = cleaned.slice(0, firstDot);
-  const decPart = cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, 2);
+  const decPart = cleaned
+    .slice(firstDot + 1)
+    .replace(/\./g, "")
+    .slice(0, 2);
   return `${intPart}.${decPart}`;
 }
 
@@ -109,7 +115,9 @@ export default function CardDetailsScreen() {
   const [bonusEditingId, setBonusEditingId] = useState<string | null>(null);
   const [bonusSpendField, setBonusSpendField] = useState("");
   const [bonusValueField, setBonusValueField] = useState("");
-  const [bonusDeadlineField, setBonusDeadlineField] = useState<string | null>(null);
+  const [bonusDeadlineField, setBonusDeadlineField] = useState<string | null>(
+    null,
+  );
   const [bonusError, setBonusError] = useState<string | null>(null);
 
   // Add-spend modal state.
@@ -190,7 +198,11 @@ export default function CardDetailsScreen() {
           <Text variant="body" className="text-error-text text-center mb-4">
             {error ? (error as Error).message : "Card not found."}
           </Text>
-          <Button variant="primary" label="Back" onPress={() => router.back()} />
+          <Button
+            variant="primary"
+            label="Back"
+            onPress={() => router.back()}
+          />
         </View>
       </SafeAreaView>
     );
@@ -258,7 +270,9 @@ export default function CardDetailsScreen() {
   const product = c.card_product;
   const program = product?.rewards_program ?? null;
   const programWallet = program
-    ? (programWallets?.wallets ?? []).find((w) => w.programId === program.id) ?? null
+    ? ((programWallets?.wallets ?? []).find(
+        (w) => w.programId === program.id,
+      ) ?? null)
     : null;
   // null while the wallet query is in flight — editing must stay disabled,
   // or "Add" would compute from a phantom zero and clobber the real balance.
@@ -270,7 +284,10 @@ export default function CardDetailsScreen() {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayIso = localIsoDay(yesterday);
-  const annualFee = product?.annual_fee != null ? `$${Number(product.annual_fee).toFixed(0)}/yr` : null;
+  const annualFee =
+    product?.annual_fee != null
+      ? `$${Number(product.annual_fee).toFixed(0)}/yr`
+      : null;
 
   // The card's signup bonus. The schema allows several rows per card, but
   // the product concept is one welcome offer — show the most recent.
@@ -292,7 +309,11 @@ export default function CardDetailsScreen() {
         )
     : 0;
   const recentSpend = [...c.spend_entries]
-    .sort((a, b) => b.spent_on.localeCompare(a.spent_on) || b.created_at.localeCompare(a.created_at))
+    .sort(
+      (a, b) =>
+        b.spent_on.localeCompare(a.spent_on) ||
+        b.created_at.localeCompare(a.created_at),
+    )
     .slice(0, 5);
 
   function parseAmount(value: string): number | null {
@@ -305,25 +326,39 @@ export default function CardDetailsScreen() {
   function startBonusEdit() {
     setBonusEditingId(bonus?.id ?? null);
     setBonusSpendField(bonus ? String(bonus.required_spend) : "");
-    setBonusValueField(bonus?.bonus_value != null ? String(bonus.bonus_value) : "");
+    setBonusValueField(
+      bonus?.bonus_value != null ? String(bonus.bonus_value) : "",
+    );
     setBonusDeadlineField(bonus?.spend_deadline ?? null);
     setBonusError(null);
     setBonusModal(true);
   }
 
-  function commitBonus() {
-    if (!card) return;
+  // Shared field parsing/validation for the bonus modal's Save and
+  // Mark-as-earned actions. Returns null (and sets an inline error) on invalid.
+  function readBonusFields(): {
+    requiredSpend: number;
+    value: number | null;
+  } | null {
     const requiredSpend = parseAmount(bonusSpendField);
     if (requiredSpend == null) {
       setBonusError("Required spend must be a positive number.");
-      return;
+      return null;
     }
     const value = parseAmount(bonusValueField);
     if (bonusValueField.trim() && value == null) {
       setBonusError("Bonus value must be a positive number.");
-      return;
+      return null;
     }
     setBonusError(null);
+    return { requiredSpend, value };
+  }
+
+  function commitBonus() {
+    if (!card) return;
+    const fields = readBonusFields();
+    if (!fields) return;
+    const { requiredSpend, value } = fields;
     const deadline = bonusDeadlineField;
     const onDone = {
       onSuccess: () => {
@@ -356,6 +391,38 @@ export default function CardDetailsScreen() {
         onDone,
       );
     }
+  }
+
+  // "Mark as earned" / undo on an existing bonus: saves the current field
+  // values and flips is_completed. The DB trigger (trg_bonus_wallet_credit)
+  // then credits — or reverses — the bonus value in the program's wallet.
+  function setBonusEarned(completed: boolean) {
+    if (!card || !bonusEditingId) return;
+    const fields = readBonusFields();
+    if (!fields) return;
+    updateBonus.mutate(
+      {
+        bonusId: bonusEditingId,
+        userCardId: c.id,
+        patch: {
+          required_spend: fields.requiredSpend,
+          bonus_value: fields.value,
+          spend_deadline: bonusDeadlineField,
+          is_completed: completed,
+        },
+      },
+      {
+        onSuccess: () => {
+          setBonusModal(false);
+          snackbarAfterModalClose(() =>
+            snackbar.success(
+              completed ? "Bonus marked as earned" : "Bonus reopened",
+            ),
+          );
+        },
+        onError: (e: Error) => setBonusError(e.message),
+      },
+    );
   }
 
   function startAddSpend() {
@@ -435,7 +502,11 @@ export default function CardDetailsScreen() {
           <Text variant="h2" numberOfLines={1}>
             {product?.name ?? "Card"}
           </Text>
-          <Text variant="caption" className="text-text-muted mt-0.5" numberOfLines={1}>
+          <Text
+            variant="caption"
+            className="text-text-muted mt-0.5"
+            numberOfLines={1}
+          >
             {product?.issuer?.name}
             {product?.network ? ` · ${product.network}` : ""}
             {annualFee ? ` · ${annualFee}` : ""}
@@ -444,7 +515,11 @@ export default function CardDetailsScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: insets.bottom + 24 }}
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: insets.bottom + 24,
+        }}
       >
         <View className="bg-surface rounded-2xl border border-border">
           <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
@@ -457,12 +532,18 @@ export default function CardDetailsScreen() {
               hitSlop={4}
             >
               <Pencil size={13} color={colors.primaryStrong} />
-              <Text variant="label" className="text-primary-strong">Edit</Text>
+              <Text variant="label" className="text-primary-strong">
+                Edit
+              </Text>
             </Pressable>
           </View>
           <DetailRow label="Nickname" value={c.nickname ?? "—"} />
           <DetailRow label="Last 4" value={c.last_four ?? "—"} />
-          <DetailRow label="Opened on" value={formatOpenedOn(c.opened_on)} last />
+          <DetailRow
+            label="Opened on"
+            value={formatOpenedOn(c.opened_on)}
+            last
+          />
         </View>
 
         {program && (
@@ -536,7 +617,10 @@ export default function CardDetailsScreen() {
                   </View>
                 ) : (
                   <Text variant="callout" className="text-text-muted">
-                    {usd(Math.max(0, Number(bonus.required_spend) - bonusSpent))} to go
+                    {usd(
+                      Math.max(0, Number(bonus.required_spend) - bonusSpent),
+                    )}{" "}
+                    to go
                   </Text>
                 )}
               </View>
@@ -561,8 +645,8 @@ export default function CardDetailsScreen() {
           ) : (
             <View className="px-4 py-5 items-center">
               <Text variant="callout" className="text-text-muted text-center">
-                No signup bonus tracked. Add one to follow your progress
-                toward the welcome offer.
+                No signup bonus tracked. Add one to follow your progress toward
+                the welcome offer.
               </Text>
             </View>
           )}
@@ -676,7 +760,9 @@ export default function CardDetailsScreen() {
                   <Text variant="title" className="flex-1 pr-3">
                     {bd.name}
                   </Text>
-                  <Text variant="callout" className="text-text-muted">{value}</Text>
+                  <Text variant="callout" className="text-text-muted">
+                    {value}
+                  </Text>
                 </View>
                 <Text variant="caption" className="text-text-muted mt-1">
                   {bd.reset_frequency} · {bd.reset_basis}
@@ -735,7 +821,9 @@ export default function CardDetailsScreen() {
             contentContainerStyle={{ padding: 20 }}
             keyboardShouldPersistTaps="handled"
           >
-            <Text variant="h2" className="mb-4">Edit card details</Text>
+            <Text variant="h2" className="mb-4">
+              Edit card details
+            </Text>
 
             <Text variant="label" className="text-text-subtle uppercase mb-2">
               Nickname
@@ -848,7 +936,9 @@ export default function CardDetailsScreen() {
             <TextInput
               className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
               style={{ fontFamily: fonts.regular, fontSize: 16 }}
-              placeholder={program?.unit_type === "cash_back" ? "$200" : "60,000"}
+              placeholder={
+                program?.unit_type === "cash_back" ? "$200" : "60,000"
+              }
               placeholderTextColor={colors.textSubtle}
               value={bonusValueField}
               onChangeText={(t) => {
@@ -874,6 +964,25 @@ export default function CardDetailsScreen() {
               <Text variant="caption" className="text-error-text mb-3">
                 {bonusError}
               </Text>
+            ) : null}
+            {bonusEditingId && bonus ? (
+              bonus.is_completed ? (
+                <Button
+                  variant="ghost"
+                  label="Mark as not earned"
+                  className="mb-3 bg-surface-muted"
+                  loading={updateBonus.isPending}
+                  onPress={() => setBonusEarned(false)}
+                />
+              ) : (
+                <Button
+                  variant="secondary"
+                  label="Mark as earned"
+                  className="mb-3"
+                  loading={updateBonus.isPending}
+                  onPress={() => setBonusEarned(true)}
+                />
+              )
             ) : null}
             <View className="flex-row gap-3">
               <Button
@@ -957,7 +1066,9 @@ export default function CardDetailsScreen() {
                   >
                     <Text
                       variant="callout"
-                      className={active ? "text-primary-strong" : "text-text-muted"}
+                      className={
+                        active ? "text-primary-strong" : "text-text-muted"
+                      }
                     >
                       {chip.label}
                     </Text>
@@ -1011,7 +1122,9 @@ export default function CardDetailsScreen() {
               {
                 onSuccess: () => {
                   setWalletEditOpen(false);
-                  snackbarAfterModalClose(() => snackbar.success("Balance updated"));
+                  snackbarAfterModalClose(() =>
+                    snackbar.success("Balance updated"),
+                  );
                 },
                 // Modal stays open on failure; keep the in-modal Alert.
                 onError: (e) => notify("Save failed", (e as Error).message),
@@ -1023,4 +1136,3 @@ export default function CardDetailsScreen() {
     </SafeAreaView>
   );
 }
-

@@ -52,7 +52,6 @@ const SELECTED_PORTFOLIO_KEY = "wanderfree-selected-portfolio-id";
 export const benefitsQueryKey = (portfolioId: string | undefined) =>
   ["portfolio", portfolioId, "benefits"] as const;
 
-
 // ── Catalog (everyone sees the same) ─────────────────────────────────────
 
 export function useCardProducts() {
@@ -61,7 +60,9 @@ export function useCardProducts() {
     queryFn: async (): Promise<CardProduct[]> => {
       const { data, error } = await supabase
         .from("card_products")
-        .select("*, issuer:card_issuers(*), rewards_program:rewards_programs(*)")
+        .select(
+          "*, issuer:card_issuers(*), rewards_program:rewards_programs(*)",
+        )
         .order("name");
       if (error) throw error;
       return (data as CardProduct[]) ?? [];
@@ -90,7 +91,9 @@ export function useUserPortfolios() {
         .select("portfolio:portfolios(*)")
         .eq("profile_id", user.id);
       if (error) throw error;
-      const rows = (data ?? []) as unknown as Array<{ portfolio: Portfolio | null }>;
+      const rows = (data ?? []) as unknown as Array<{
+        portfolio: Portfolio | null;
+      }>;
       const portfolios = rows
         .map((r) => r.portfolio)
         .filter((p): p is Portfolio => p != null);
@@ -123,7 +126,9 @@ export function useCurrentPortfolio() {
         .select("portfolio:portfolios(*)")
         .eq("profile_id", user.id);
       if (error) throw error;
-      const rows = (data ?? []) as unknown as Array<{ portfolio: Portfolio | null }>;
+      const rows = (data ?? []) as unknown as Array<{
+        portfolio: Portfolio | null;
+      }>;
       const portfolios = rows
         .map((r) => r.portfolio)
         .filter((p): p is Portfolio => p != null);
@@ -271,7 +276,11 @@ export function useBenefits(portfolioId: string | undefined) {
                 c.period_end >= today,
             ) ?? null;
           const redeemed = card.benefit_redemptions
-            .filter((r) => r.benefit_definition_id === bd.id && (!cycle || r.benefit_cycle_id === cycle.id))
+            .filter(
+              (r) =>
+                r.benefit_definition_id === bd.id &&
+                (!cycle || r.benefit_cycle_id === cycle.id),
+            )
             .reduce((sum, r) => sum + Number(r.amount), 0);
           // No DB trigger maintains cycle.status today, so also derive
           // fully-redeemed from the running redemption sum. If a trigger
@@ -285,8 +294,10 @@ export function useBenefits(portfolioId: string | undefined) {
             benefit_definition_id: bd.id,
             name: bd.name,
             card_name: cardName,
-            value_per_period: bd.value_per_period == null ? null : Number(bd.value_per_period),
-            annual_value: bd.annual_value == null ? null : Number(bd.annual_value),
+            value_per_period:
+              bd.value_per_period == null ? null : Number(bd.value_per_period),
+            annual_value:
+              bd.annual_value == null ? null : Number(bd.annual_value),
             reset_frequency: bd.reset_frequency,
             benefit_category: bd.benefit_category,
             cycle,
@@ -380,7 +391,8 @@ export function useSignupBonuses(portfolioId: string | undefined) {
           artSeed: card.card_product?.id ?? card.id,
           bonusId: bonus.id,
           requiredSpend: Number(bonus.required_spend),
-          bonusValue: bonus.bonus_value == null ? null : Number(bonus.bonus_value),
+          bonusValue:
+            bonus.bonus_value == null ? null : Number(bonus.bonus_value),
           unitType: card.card_product?.rewards_program?.unit_type ?? null,
           deadline: bonus.spend_deadline,
           spent,
@@ -390,8 +402,9 @@ export function useSignupBonuses(portfolioId: string | undefined) {
       // Soonest deadline first; no-deadline bonuses sink to the bottom.
       out.sort(
         (a, b) =>
-          (a.deadline ?? "9999-12-31").localeCompare(b.deadline ?? "9999-12-31") ||
-          a.cardName.localeCompare(b.cardName),
+          (a.deadline ?? "9999-12-31").localeCompare(
+            b.deadline ?? "9999-12-31",
+          ) || a.cardName.localeCompare(b.cardName),
       );
       return out;
     },
@@ -447,7 +460,9 @@ export function useProgramWallets(portfolioId: string | undefined) {
           .eq("is_active", true),
         supabase
           .from("wallet_accounts")
-          .select("id, rewards_program_id, balance, rewards_program:rewards_programs(id, name, unit_type)")
+          .select(
+            "id, rewards_program_id, balance, rewards_program:rewards_programs(id, name, unit_type)",
+          )
           .eq("portfolio_id", portfolioId!),
       ]);
       if (cardsRes.error) throw cardsRes.error;
@@ -539,7 +554,8 @@ export function useProgramWallets(portfolioId: string | undefined) {
       }
 
       const wallets = Array.from(byProgram.values()).sort(
-        (a, b) => b.balance - a.balance || a.programName.localeCompare(b.programName),
+        (a, b) =>
+          b.balance - a.balance || a.programName.localeCompare(b.programName),
       );
       unlinkedCards.sort((a, b) => a.name.localeCompare(b.name));
       return { wallets, unlinkedCards };
@@ -567,7 +583,9 @@ export function useSetWalletBalance(portfolioId: string | undefined) {
     },
     onSuccess: () => {
       track("wallet_balance_edited");
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "program_wallets_v2"],
+      });
       qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "wallets"] });
     },
   });
@@ -673,9 +691,14 @@ export function useAddUserCard(portfolioId: string | undefined) {
       cardProductId: string;
       openedOn: string | null;
       bonus?: SignupBonusInput | null;
+      /** Points already on the card, seeded into the program wallet. */
+      startingPoints?: number | null;
+      /** The card product's rewards program (target of startingPoints). */
+      programId?: string | null;
     }) => {
       if (!portfolioId) throw new Error("No portfolio selected");
-      const { cardProductId, openedOn, bonus } = args;
+      const { cardProductId, openedOn, bonus, startingPoints, programId } =
+        args;
 
       // 1. Create the user_card.
       const { data: card, error: cErr } = await supabase
@@ -695,7 +718,9 @@ export function useAddUserCard(portfolioId: string | undefined) {
       //    shows rows but they're not toggleable.
       const { data: defs, error: dErr } = await supabase
         .from("benefit_definitions")
-        .select("id, value_per_period, annual_value, reset_frequency, reset_basis")
+        .select(
+          "id, value_per_period, annual_value, reset_frequency, reset_basis",
+        )
         .eq("card_product_id", cardProductId);
       if (dErr) throw dErr;
 
@@ -707,7 +732,11 @@ export function useAddUserCard(portfolioId: string | undefined) {
         if (d.reset_basis === "calendar") {
           period = computeCalendarPeriod(today, d.reset_frequency);
         } else if (d.reset_basis === "anniversary" && openedOnDate) {
-          period = computeAnniversaryPeriod(today, openedOnDate, d.reset_frequency);
+          period = computeAnniversaryPeriod(
+            today,
+            openedOnDate,
+            d.reset_frequency,
+          );
         }
         if (!period) continue; // anniversary benefit but no opened_on — skip
         cycles.push({
@@ -728,13 +757,38 @@ export function useAddUserCard(portfolioId: string | undefined) {
 
       // 3. Record the signup bonus, if the user provided one.
       if (bonus) {
-        const { error: bErr } = await supabase.from("user_signup_bonuses").insert({
-          user_card_id: (card as { id: string }).id,
-          required_spend: bonus.requiredSpend,
-          bonus_value: bonus.bonusValue,
-          spend_deadline: bonus.deadline,
-        });
+        const { error: bErr } = await supabase
+          .from("user_signup_bonuses")
+          .insert({
+            user_card_id: (card as { id: string }).id,
+            required_spend: bonus.requiredSpend,
+            bonus_value: bonus.bonusValue,
+            spend_deadline: bonus.deadline,
+          });
         if (bErr) throw bErr;
+      }
+
+      // 4. Seed the program wallet with points already on the card. Wallets are
+      //    per (portfolio, program) and pooled across cards, so ADD to any
+      //    existing balance rather than overwrite it.
+      if (startingPoints && startingPoints > 0 && programId) {
+        const { data: existing, error: selErr } = await supabase
+          .from("wallet_accounts")
+          .select("balance")
+          .eq("portfolio_id", portfolioId)
+          .eq("rewards_program_id", programId)
+          .maybeSingle();
+        if (selErr) throw selErr;
+        const newBalance = Number(existing?.balance ?? 0) + startingPoints;
+        const { error: wErr } = await supabase.from("wallet_accounts").upsert(
+          {
+            portfolio_id: portfolioId,
+            rewards_program_id: programId,
+            balance: newBalance,
+          },
+          { onConflict: "portfolio_id,rewards_program_id" },
+        );
+        if (wErr) throw wErr;
       }
     },
     onSuccess: async () => {
@@ -745,9 +799,17 @@ export function useAddUserCard(portfolioId: string | undefined) {
       } = await supabase.auth.getUser();
       if (user) await markOnboarded(user.id);
       track("card_added", {}, portfolioId);
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "user_cards"],
+      });
       qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "signup_bonuses_v2"],
+      });
+      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "wallets"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "program_wallets_v2"],
+      });
     },
   });
 }
@@ -775,10 +837,14 @@ export function useUpdateUserCard(portfolioId: string | undefined) {
       if (error) throw error;
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "user_cards"],
+      });
       qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
       // Points-tab rows display card nicknames.
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "program_wallets_v2"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "program_wallets_v2"],
+      });
       qc.invalidateQueries({ queryKey: ["card_v2", vars.userCardId] });
     },
   });
@@ -840,7 +906,9 @@ export function useRemoveUserCard(portfolioId: string | undefined) {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["portfolio", portfolioId, "user_cards"] });
+      qc.invalidateQueries({
+        queryKey: ["portfolio", portfolioId, "user_cards"],
+      });
       qc.invalidateQueries({ queryKey: benefitsQueryKey(portfolioId) });
     },
   });
@@ -922,7 +990,11 @@ export function useEnsureCycles(portfolioId: string | undefined) {
             if (d.reset_basis === "calendar") {
               period = computeCalendarPeriod(today, d.reset_frequency);
             } else if (d.reset_basis === "anniversary" && openedOn) {
-              period = computeAnniversaryPeriod(today, openedOn, d.reset_frequency);
+              period = computeAnniversaryPeriod(
+                today,
+                openedOn,
+                d.reset_frequency,
+              );
             }
             if (period) {
               toCreate.push({
@@ -1054,7 +1126,10 @@ export function useToggleBenefitRedeemed(portfolioId: string | undefined) {
 export function useAddSignupBonus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { userCardId: string; bonus: SignupBonusInput }) => {
+    mutationFn: async (args: {
+      userCardId: string;
+      bonus: SignupBonusInput;
+    }) => {
       const { error } = await supabase.from("user_signup_bonuses").insert({
         user_card_id: args.userCardId,
         required_spend: args.bonus.requiredSpend,
