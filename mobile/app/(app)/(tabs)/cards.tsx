@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { Text } from "@/components/ui/Text";
 import { confirmDestructive } from "@/lib/dialog";
-import { localIsoDay, programUnitLabel } from "@/lib/format";
+import { fmtDate, localIsoDay, programUnitLabel } from "@/lib/format";
 import {
   useAddUserCard,
   useCardProducts,
@@ -48,19 +48,16 @@ function todayIso(): string {
   return localIsoDay();
 }
 
+// opened_on is a Postgres `date` ("YYYY-MM-DD"), which parses as UTC midnight —
+// so formatting must go through fmtDate (pins timeZone: "UTC") or the calendar
+// day shifts back one in negative-offset zones (all of the US).
 function formatOpenedOn(iso: string | null): string {
-  if (!iso) return "Not set";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return iso ? fmtDate(iso) : "Not set";
 }
 
 export default function CardsScreen() {
-  const { data: portfolio, isLoading: portfolioLoading } = useCurrentPortfolio();
+  const { data: portfolio, isLoading: portfolioLoading } =
+    useCurrentPortfolio();
   const portfolioId = portfolio?.id;
 
   const {
@@ -85,6 +82,8 @@ export default function CardsScreen() {
   const [bonusSpend, setBonusSpend] = useState("");
   const [bonusValue, setBonusValue] = useState("");
   const [bonusDeadline, setBonusDeadline] = useState<string | null>(null);
+  const [bonusAlreadyEarned, setBonusAlreadyEarned] = useState(false);
+  const [startingPoints, setStartingPoints] = useState("");
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [welcomeVisible, setWelcomeVisible] = useState(false);
@@ -162,6 +161,8 @@ export default function CardsScreen() {
     setBonusSpend("");
     setBonusValue("");
     setBonusDeadline(null);
+    setBonusAlreadyEarned(false);
+    setStartingPoints("");
     setAddError(null);
     setAddTarget(card);
   }
@@ -193,15 +194,30 @@ export default function CardsScreen() {
         requiredSpend,
         bonusValue: value,
         deadline: bonusDeadline,
+        alreadyEarned: bonusAlreadyEarned,
       };
     } else if (bonusValue.trim() || bonusDeadline) {
       setAddError("Enter the required spend to track this signup bonus.");
       return;
     }
 
+    // Points the user already holds on this card (optional) — seeded into the
+    // card's program wallet. Only applies when the card earns into a program.
+    const startPts = parseAmount(startingPoints);
+    if (startingPoints.trim() && startPts == null) {
+      setAddError("Points already on the card must be a positive number.");
+      return;
+    }
+
     setAddError(null);
     add.mutate(
-      { cardProductId: addTarget.id, openedOn, bonus },
+      {
+        cardProductId: addTarget.id,
+        openedOn,
+        bonus,
+        startingPoints: addTarget.rewards_program_id ? startPts : null,
+        programId: addTarget.rewards_program_id,
+      },
       {
         onSuccess: () => {
           setAddTarget(null);
@@ -287,7 +303,9 @@ export default function CardsScreen() {
               </Text>
               <Text variant="h2" className="text-primary-strong">
                 ${Math.round(heldFees).toLocaleString()}
-                <Text variant="caption" className="text-primary-strong">/yr</Text>
+                <Text variant="caption" className="text-primary-strong">
+                  /yr
+                </Text>
               </Text>
             </View>
           )}
@@ -352,7 +370,9 @@ export default function CardsScreen() {
           const heldCard = heldByProduct.get(item.id);
           const held = heldCard != null;
           const annualFee =
-            item.annual_fee != null ? `$${Number(item.annual_fee).toFixed(0)}/yr` : null;
+            item.annual_fee != null
+              ? `$${Number(item.annual_fee).toFixed(0)}/yr`
+              : null;
 
           const rowContent = (
             <View className="flex-1 flex-row items-center pr-3">
@@ -475,16 +495,52 @@ export default function CardsScreen() {
               accessibilityLabel="Opened on date"
             />
 
+            {addTarget?.rewards_program_id ? (
+              <>
+                <Text
+                  variant="label"
+                  className="text-text-subtle uppercase mb-2"
+                >
+                  Already on this card (
+                  {programUnitLabel(addTarget?.rewards_program?.unit_type)})
+                </Text>
+                <Text variant="caption" className="text-text-muted mb-2">
+                  Already hold this card? Enter its current balance so your
+                  points wallet starts accurate.
+                </Text>
+                <TextInput
+                  className="bg-surface border border-border rounded-xl px-4 py-3 mb-4 text-text"
+                  style={{ fontFamily: fonts.regular, fontSize: 16 }}
+                  placeholder={
+                    addTarget?.rewards_program?.unit_type === "cash_back"
+                      ? "$1,000"
+                      : "25,000"
+                  }
+                  placeholderTextColor={colors.textSubtle}
+                  value={startingPoints}
+                  onChangeText={(t) => {
+                    setStartingPoints(t);
+                    if (addError) setAddError(null);
+                  }}
+                  keyboardType="decimal-pad"
+                  accessibilityLabel="Points already on this card"
+                />
+              </>
+            ) : null}
+
             <Text variant="label" className="text-text-subtle uppercase mb-1">
               Signup bonus (optional)
             </Text>
             <Text variant="caption" className="text-text-muted mb-3">
-              Track your progress toward the welcome offer. You can add or
-              edit this later from the card&apos;s details.
+              Track your progress toward the welcome offer. You can add or edit
+              this later from the card&apos;s details.
             </Text>
             <View className="flex-row gap-3 mb-4">
               <View className="flex-1">
-                <Text variant="label" className="text-text-subtle uppercase mb-2">
+                <Text
+                  variant="label"
+                  className="text-text-subtle uppercase mb-2"
+                >
                   Required spend
                 </Text>
                 <TextInput
@@ -501,8 +557,12 @@ export default function CardsScreen() {
                 />
               </View>
               <View className="flex-1">
-                <Text variant="label" className="text-text-subtle uppercase mb-2">
-                  Bonus ({programUnitLabel(addTarget?.rewards_program?.unit_type)})
+                <Text
+                  variant="label"
+                  className="text-text-subtle uppercase mb-2"
+                >
+                  Bonus (
+                  {programUnitLabel(addTarget?.rewards_program?.unit_type)})
                 </Text>
                 <TextInput
                   className="bg-surface border border-border rounded-xl px-4 py-3 text-text"
@@ -533,6 +593,40 @@ export default function CardsScreen() {
               className="mb-4"
               accessibilityLabel="Spend deadline date"
             />
+
+            <Pressable
+              onPress={() => {
+                setBonusAlreadyEarned((v) => !v);
+                if (addError) setAddError(null);
+              }}
+              className="flex-row items-center mb-2"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: bonusAlreadyEarned }}
+              accessibilityLabel="I've already earned this bonus"
+            >
+              <View
+                className={
+                  "w-5 h-5 rounded-md border items-center justify-center mr-2.5 " +
+                  (bonusAlreadyEarned
+                    ? "bg-primary-strong border-primary-strong"
+                    : "bg-surface border-border")
+                }
+              >
+                {bonusAlreadyEarned ? (
+                  <Check size={14} color="#FFFFFF" />
+                ) : null}
+              </View>
+              <Text variant="callout" className="flex-1 text-text">
+                I&apos;ve already earned this bonus
+              </Text>
+            </Pressable>
+            {bonusAlreadyEarned ? (
+              <Text variant="caption" className="text-text-muted mb-4">
+                {addTarget?.rewards_program_id
+                  ? "It'll be marked earned, but its points won't be added — enter your current balance in “Already on this card” above instead."
+                  : "It'll be marked earned. No points are added (this card has no rewards program)."}
+              </Text>
+            ) : null}
             {addError ? (
               <Text variant="caption" className="text-error-text mb-3">
                 {addError}
@@ -580,7 +674,12 @@ export default function CardsScreen() {
               to add them. We&apos;ll track their benefits and credits for you,
               and you&apos;ll see them all on the Benefits tab.
             </Text>
-            <Button variant="primary" label="Got it" fullWidth onPress={dismissWelcome} />
+            <Button
+              variant="primary"
+              label="Got it"
+              fullWidth
+              onPress={dismissWelcome}
+            />
           </View>
         </View>
       </Modal>
