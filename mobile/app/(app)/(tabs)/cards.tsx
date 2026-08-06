@@ -82,6 +82,7 @@ export default function CardsScreen() {
   const [bonusSpend, setBonusSpend] = useState("");
   const [bonusValue, setBonusValue] = useState("");
   const [bonusDeadline, setBonusDeadline] = useState<string | null>(null);
+  const [bonusAlreadyEarned, setBonusAlreadyEarned] = useState(false);
   const [startingPoints, setStartingPoints] = useState("");
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -160,6 +161,7 @@ export default function CardsScreen() {
     setBonusSpend("");
     setBonusValue("");
     setBonusDeadline(null);
+    setBonusAlreadyEarned(false);
     setStartingPoints("");
     setAddError(null);
     setAddTarget(card);
@@ -192,6 +194,7 @@ export default function CardsScreen() {
         requiredSpend,
         bonusValue: value,
         deadline: bonusDeadline,
+        alreadyEarned: bonusAlreadyEarned,
       };
     } else if (bonusValue.trim() || bonusDeadline) {
       setAddError("Enter the required spend to track this signup bonus.");
@@ -590,6 +593,40 @@ export default function CardsScreen() {
               className="mb-4"
               accessibilityLabel="Spend deadline date"
             />
+
+            <Pressable
+              onPress={() => {
+                setBonusAlreadyEarned((v) => !v);
+                if (addError) setAddError(null);
+              }}
+              className="flex-row items-center mb-2"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: bonusAlreadyEarned }}
+              accessibilityLabel="I've already earned this bonus"
+            >
+              <View
+                className={
+                  "w-5 h-5 rounded-md border items-center justify-center mr-2.5 " +
+                  (bonusAlreadyEarned
+                    ? "bg-primary-strong border-primary-strong"
+                    : "bg-surface border-border")
+                }
+              >
+                {bonusAlreadyEarned ? (
+                  <Check size={14} color="#FFFFFF" />
+                ) : null}
+              </View>
+              <Text variant="callout" className="flex-1 text-text">
+                I&apos;ve already earned this bonus
+              </Text>
+            </Pressable>
+            {bonusAlreadyEarned ? (
+              <Text variant="caption" className="text-text-muted mb-4">
+                {addTarget?.rewards_program_id
+                  ? "It'll be marked earned, but its points won't be added — enter your current balance in “Already on this card” above instead."
+                  : "It'll be marked earned. No points are added (this card has no rewards program)."}
+              </Text>
+            ) : null}
             {addError ? (
               <Text variant="caption" className="text-error-text mb-3">
                 {addError}

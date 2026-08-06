@@ -682,6 +682,9 @@ export interface SignupBonusInput {
   requiredSpend: number;
   bonusValue: number | null;
   deadline: string | null;
+  /** Bonus was already earned before adding the card — create it completed
+   *  WITHOUT crediting the wallet (the entered starting points are the truth). */
+  alreadyEarned?: boolean;
 }
 
 export function useAddUserCard(portfolioId: string | undefined) {
@@ -757,6 +760,12 @@ export function useAddUserCard(portfolioId: string | undefined) {
 
       // 3. Record the signup bonus, if the user provided one.
       if (bonus) {
+        // When already earned before adding the card, insert it completed.
+        // trg_bonus_wallet_credit is UPDATE-only, so an INSERT with
+        // is_completed=true never fires it — the entered starting points stay
+        // the source of truth. Recording credited_amount = bonus_value marks it
+        // "already accounted for" so any later edit/reversal is an exact delta.
+        const alreadyEarned = bonus.alreadyEarned ?? false;
         const { error: bErr } = await supabase
           .from("user_signup_bonuses")
           .insert({
@@ -764,6 +773,8 @@ export function useAddUserCard(portfolioId: string | undefined) {
             required_spend: bonus.requiredSpend,
             bonus_value: bonus.bonusValue,
             spend_deadline: bonus.deadline,
+            is_completed: alreadyEarned,
+            credited_amount: alreadyEarned ? bonus.bonusValue : null,
           });
         if (bErr) throw bErr;
       }
