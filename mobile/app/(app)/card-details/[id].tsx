@@ -49,15 +49,11 @@ import { snackbar, snackbarAfterModalClose } from "@/lib/snackbar";
 import { colors, fonts } from "@/lib/theme";
 import type { ProgramUnitType } from "@/lib/types";
 
+// opened_on is a Postgres `date` ("YYYY-MM-DD"), which parses as UTC midnight —
+// so formatting must go through fmtDate (pins timeZone: "UTC") or the calendar
+// day shifts back one in negative-offset zones (all of the US).
 function formatOpenedOn(iso: string | null): string {
-  if (!iso) return "Not set";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return iso ? fmtDate(iso) : "Not set";
 }
 
 /** Constrain a currency text field to digits and at most two decimal places,

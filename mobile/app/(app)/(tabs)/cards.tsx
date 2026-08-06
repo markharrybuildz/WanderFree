@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/Button";
 import { DateField } from "@/components/ui/DateField";
 import { Text } from "@/components/ui/Text";
 import { confirmDestructive } from "@/lib/dialog";
-import { localIsoDay, programUnitLabel } from "@/lib/format";
+import { fmtDate, localIsoDay, programUnitLabel } from "@/lib/format";
 import {
   useAddUserCard,
   useCardProducts,
@@ -48,15 +48,11 @@ function todayIso(): string {
   return localIsoDay();
 }
 
+// opened_on is a Postgres `date` ("YYYY-MM-DD"), which parses as UTC midnight —
+// so formatting must go through fmtDate (pins timeZone: "UTC") or the calendar
+// day shifts back one in negative-offset zones (all of the US).
 function formatOpenedOn(iso: string | null): string {
-  if (!iso) return "Not set";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return iso ? fmtDate(iso) : "Not set";
 }
 
 export default function CardsScreen() {
