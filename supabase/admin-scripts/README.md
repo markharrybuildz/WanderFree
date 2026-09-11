@@ -16,6 +16,7 @@ environment to register helper functions that you then call.
 | `_install_admin_functions.sql` | One-time: installs `admin_delete_user(email)`. |
 | `delete_user_preview.sql` | Read-only preview of what `admin_delete_user()` would touch. |
 | `analytics_reporting_role.sql` | One-time: creates the read-only `metabase_ro` role for BI dashboards. |
+| `csp_hotel_credit_100.sql` (+ preview) | Catalog patch: CSP hotel credit $50 → $100 (Chase change effective 2026-06-15). |
 
 User deletion is a single canonical implementation, `public.purge_user(uuid)`,
 shipped in migration `20260710130000_purge_user_helper.sql`. Both the self-serve
