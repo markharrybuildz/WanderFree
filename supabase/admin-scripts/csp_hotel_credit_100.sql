@@ -9,6 +9,12 @@
 -- Every statement RETURNING its touched rows is deliberate: Studio's
 -- results pane then proves the update landed. A first pass of this patch
 -- silently didn't apply; the returning clause is what caught it.
+--
+-- The explicit transaction keeps the catalog and cycle updates atomic
+-- for clients that run statements one at a time (psql, scripts); a
+-- Studio batch already executes as one implicit transaction.
+
+begin;
 
 -- 1. Catalog: bump the definition and scrub any "$50" baked into the name.
 --    Expect exactly one row back: "$100 Annual Hotel Credit", 100.00, 100.00.
@@ -48,6 +54,8 @@ set
 from target_cycles tc
 where ubc.id = tc.id
 returning ubc.id, ubc.allotted_value, ubc.status;
+
+commit;
 
 -- Optional follow-up, NOT run above: the $100 credit resets each
 -- cardmember (anniversary) year. If the definition currently says

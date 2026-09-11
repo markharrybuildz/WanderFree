@@ -26,7 +26,7 @@ cd mobile
 nvm use                       # match .nvmrc (20)
 npm install
 npx expo install --fix        # align deps to the installed Expo SDK
-cp .env.example .env          # then fill in EXPO_PUBLIC_SUPABASE_URL + ANON_KEY
+cp .env.example .env          # then fill in EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
 
 npm start                     # dev server (then i / a / w)
 npm run typecheck             # tsc --noEmit
