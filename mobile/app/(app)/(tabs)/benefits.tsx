@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   Keyboard,
   Pressable,
+  RefreshControl,
   SectionList,
   TextInput,
   View,
@@ -292,6 +293,13 @@ export default function BenefitsScreen() {
       <SectionList
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        refreshControl={
+          <RefreshControl
+            refreshing={isFetching}
+            onRefresh={() => refetch()}
+            tintColor={colors.primary}
+          />
+        }
         sections={sections}
         keyExtractor={(b) => `${b.user_card_id}:${b.benefit_definition_id}`}
         contentContainerStyle={{ padding: 16, gap: 10 }}

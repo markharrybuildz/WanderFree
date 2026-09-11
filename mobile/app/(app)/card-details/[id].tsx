@@ -21,6 +21,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   TextInput,
   View,
@@ -108,7 +109,13 @@ export default function CardDetailsScreen() {
   const { data: portfolio } = useCurrentPortfolio();
   const portfolioId = portfolio?.id;
 
-  const { data: card, isLoading, error } = useCardDetails(id);
+  const {
+    data: card,
+    isLoading,
+    error,
+    isFetching: fetchingCard,
+    refetch: refetchCard,
+  } = useCardDetails(id);
   const update = useUpdateUserCard(portfolioId);
   const remove = useRemoveUserCard(portfolioId);
   const addBonus = useAddSignupBonus();
@@ -606,6 +613,13 @@ export default function CardDetailsScreen() {
           gap: 16,
           paddingBottom: insets.bottom + 24,
         }}
+        refreshControl={
+          <RefreshControl
+            refreshing={fetchingCard}
+            onRefresh={() => refetchCard()}
+            tintColor={colors.primary}
+          />
+        }
       >
         <View className="bg-surface rounded-2xl border border-border">
           <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
